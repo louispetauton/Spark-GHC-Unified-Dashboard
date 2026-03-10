@@ -207,51 +207,141 @@ const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06
 
 // ── Supply data (from participation list) ─────────────────────────────────
 const SUPPLY = {
-  "Akron, OH":                                                   { rooms:9804,  props:110 },
-  "Cincinnati, OH":                                              { rooms:32274, props:291 },
-  "Cleveland, OH":                                               { rooms:21674, props:166 },
-  "Columbus, OH":                                                { rooms:30974, props:262 },
-  "Dayton, OH":                                                  { rooms:12367, props:137 },
-  "Ohio State Area, OH":                                         { rooms:27249, props:412 },
-  "Sandusky, OH":                                                { rooms:5116,  props:43  },
-  "Toledo, OH":                                                  { rooms:7786,  props:78  },
-  "Youngstown, OH":                                              { rooms:3279,  props:44  },
-  "Akron, OH::Akron - Akron, OH":                                { rooms:2563,  props:29  },
-  "Akron, OH::Akron West - Akron, OH":                           { rooms:2876,  props:33  },
-  "Akron, OH::Canton - Akron, OH":                               { rooms:2602,  props:28  },
-  "Akron, OH::Twinsburg/Streetsboro - Akron, OH":                { rooms:1763,  props:20  },
-  "Cincinnati, OH::CVG Airport - Cincinnati, OH":                { rooms:5904,  props:54  },
-  "Cincinnati, OH::Cincinnati East - Cincinnati, OH":            { rooms:2306,  props:23  },
-  "Cincinnati, OH::Cincinnati North - Cincinnati, OH":           { rooms:12681, props:115 },
-  "Cincinnati, OH::Cincinnati West - Cincinnati, OH":            { rooms:1561,  props:20  },
-  "Cincinnati, OH::Downtown Cincinnati - Cincinnati, OH":        { rooms:8407,  props:57  },
-  "Cincinnati, OH::Franklin - Cincinnati, OH":                   { rooms:1415,  props:22  },
-  "Cleveland, OH::Avon/I90 West - Cleveland, OH":                { rooms:5483,  props:50  },
-  "Cleveland, OH::Cleveland Heights - Cleveland, OH":            { rooms:1925,  props:20  },
-  "Cleveland, OH::Cleveland Southeast - Cleveland, OH":          { rooms:3328,  props:29  },
-  "Cleveland, OH::Downtown Cleveland - Cleveland, OH":           { rooms:6539,  props:32  },
-  "Cleveland, OH::Strongsville/Medina - Cleveland, OH":          { rooms:4399,  props:35  },
-  "Columbus, OH::CMH Airport - Columbus, OH":                    { rooms:4801,  props:39  },
-  "Columbus, OH::Columbus South - Columbus, OH":                 { rooms:4192,  props:47  },
-  "Columbus, OH::Columbus West - Columbus, OH":                  { rooms:5003,  props:48  },
-  "Columbus, OH::Downtown Columbus - Columbus, OH":              { rooms:8261,  props:49  },
-  "Columbus, OH::Newark - Columbus, OH":                         { rooms:1648,  props:20  },
-  "Columbus, OH::Worthington/Westerville - Columbus, OH":        { rooms:7069,  props:59  },
-  "Dayton, OH::Dayton Northeast/Fairborn - Dayton, OH":          { rooms:2691,  props:29  },
-  "Dayton, OH::Dayton South/Miamisburg - Dayton, OH":            { rooms:2711,  props:27  },
-  "Dayton, OH::Downtown/DAY Airport - Dayton, OH":               { rooms:4575,  props:50  },
-  "Dayton, OH::Springfield - Dayton, OH":                        { rooms:1095,  props:16  },
-  "Dayton, OH::Tipp City/Troy - Dayton, OH":                     { rooms:1295,  props:15  },
-  "Ohio State Area, OH::Findlay - Ohio State Area, OH":          { rooms:1272,  props:15  },
-  "Ohio State Area, OH::I70 Corridor - Ohio State Area, OH":     { rooms:2091,  props:24  },
-  "Ohio State Area, OH::Lima - Ohio State Area, OH":             { rooms:1435,  props:16  },
-  "Ohio State Area, OH::Mansfield/Ashland - Ohio State Area, OH":{ rooms:1902,  props:27  },
-  "Ohio State Area, OH::Ohio North - Ohio State Area, OH":       { rooms:13992, props:231 },
-  "Ohio State Area, OH::Ohio South - Ohio State Area, OH":       { rooms:6557,  props:99  },
-  "Sandusky, OH::Sandusky, OH":                                  { rooms:5116,  props:43  },
-  "Toledo, OH::Toledo East - Toledo, OH":                        { rooms:3333,  props:35  },
-  "Toledo, OH::Toledo West - Toledo, OH":                        { rooms:4453,  props:43  },
-  "Youngstown, OH::Youngstown, OH":                              { rooms:3279,  props:44  },
+  "Akron, OH": {
+    "All Tier":   { rooms: 9804, props: 110 }, "Lower Tier": { rooms: 1891, props:  27 },
+    "Mid Tier":   { rooms: 5008, props:  57 }, "Upper Tier": { rooms: 2905, props:  26 } },
+  "Akron, OH::Akron - Akron, OH": {
+    "All Tier":   { rooms: 2563, props:  29 }, "Lower Tier": { rooms:  572, props:   7 },
+    "Mid Tier":   { rooms: 1045, props:  14 }, "Upper Tier": { rooms:  946, props:   8 } },
+  "Akron, OH::Akron West - Akron, OH": {
+    "All Tier":   { rooms: 2876, props:  33 }, "Lower Tier": { rooms:  594, props:  10 },
+    "Mid Tier":   { rooms: 1661, props:  18 }, "Upper Tier": { rooms:  621, props:   5 } },
+  "Akron, OH::Canton - Akron, OH": {
+    "All Tier":   { rooms: 2602, props:  28 }, "Lower Tier": { rooms:  436, props:   6 },
+    "Mid Tier":   { rooms: 1213, props:  14 }, "Upper Tier": { rooms:  953, props:   8 } },
+  "Akron, OH::Twinsburg/Streetsboro - Akron, OH": {
+    "All Tier":   { rooms: 1763, props:  20 }, "Lower Tier": { rooms:  289, props:   4 },
+    "Mid Tier":   { rooms: 1089, props:  11 }, "Upper Tier": { rooms:  385, props:   5 } },
+  "Cincinnati, OH": {
+    "All Tier":   { rooms:32274, props: 291 }, "Lower Tier": { rooms: 5018, props:  59 },
+    "Mid Tier":   { rooms:14211, props: 144 }, "Upper Tier": { rooms:13045, props:  88 } },
+  "Cincinnati, OH::CVG Airport - Cincinnati, OH": {
+    "All Tier":   { rooms: 5904, props:  54 }, "Lower Tier": { rooms: 1302, props:  15 },
+    "Mid Tier":   { rooms: 2737, props:  27 }, "Upper Tier": { rooms: 1865, props:  12 } },
+  "Cincinnati, OH::Cincinnati East - Cincinnati, OH": {
+    "All Tier":   { rooms: 2306, props:  23 }, "Lower Tier": { rooms:  252, props:   3 },
+    "Mid Tier":   { rooms: 1384, props:  14 }, "Upper Tier": { rooms:  670, props:   6 } },
+  "Cincinnati, OH::Cincinnati North - Cincinnati, OH": {
+    "All Tier":   { rooms:12681, props: 115 }, "Lower Tier": { rooms: 2303, props:  23 },
+    "Mid Tier":   { rooms: 5695, props:  57 }, "Upper Tier": { rooms: 4683, props:  35 } },
+  "Cincinnati, OH::Cincinnati West - Cincinnati, OH": {
+    "All Tier":   { rooms: 1561, props:  20 }, "Lower Tier": { rooms:  285, props:   3 },
+    "Mid Tier":   { rooms: 1009, props:  13 }, "Upper Tier": { rooms:  267, props:   4 } },
+  "Cincinnati, OH::Downtown Cincinnati - Cincinnati, OH": {
+    "All Tier":   { rooms: 8407, props:  57 }, "Lower Tier": { rooms:  337, props:   5 },
+    "Mid Tier":   { rooms: 2631, props:  22 }, "Upper Tier": { rooms: 5439, props:  30 } },
+  "Cincinnati, OH::Franklin - Cincinnati, OH": {
+    "All Tier":   { rooms: 1415, props:  22 }, "Lower Tier": { rooms:  539, props:  10 },
+    "Mid Tier":   { rooms:  755, props:  11 }, "Upper Tier": { rooms:  121, props:   1 } },
+  "Cleveland, OH": {
+    "All Tier":   { rooms:21674, props: 166 }, "Lower Tier": { rooms: 2548, props:  28 },
+    "Mid Tier":   { rooms: 7891, props:  73 }, "Upper Tier": { rooms:11235, props:  65 } },
+  "Cleveland, OH::Avon/I90 West - Cleveland, OH": {
+    "All Tier":   { rooms: 5483, props:  50 }, "Lower Tier": { rooms: 1104, props:  13 },
+    "Mid Tier":   { rooms: 2600, props:  25 }, "Upper Tier": { rooms: 1779, props:  12 } },
+  "Cleveland, OH::Cleveland Heights - Cleveland, OH": {
+    "All Tier":   { rooms: 1925, props:  20 }, "Lower Tier": { rooms:  711, props:   7 },
+    "Mid Tier":   { rooms:  741, props:   8 }, "Upper Tier": { rooms:  473, props:   5 } },
+  "Cleveland, OH::Cleveland Southeast - Cleveland, OH": {
+    "All Tier":   { rooms: 3328, props:  29 }, "Lower Tier": { rooms:  219, props:   2 },
+    "Mid Tier":   { rooms: 1089, props:  11 }, "Upper Tier": { rooms: 2020, props:  16 } },
+  "Cleveland, OH::Downtown Cleveland - Cleveland, OH": {
+    "All Tier":   { rooms: 6539, props:  32 }, "Lower Tier": { rooms:   50, props:   1 },
+    "Mid Tier":   { rooms:  890, props:   7 }, "Upper Tier": { rooms: 5599, props:  24 } },
+  "Cleveland, OH::Strongsville/Medina - Cleveland, OH": {
+    "All Tier":   { rooms: 4399, props:  35 }, "Lower Tier": { rooms:  464, props:   5 },
+    "Mid Tier":   { rooms: 2571, props:  22 }, "Upper Tier": { rooms: 1364, props:   8 } },
+  "Columbus, OH": {
+    "All Tier":   { rooms:30974, props: 262 }, "Lower Tier": { rooms: 5610, props:  55 },
+    "Mid Tier":   { rooms:10830, props: 119 }, "Upper Tier": { rooms:14534, props:  88 } },
+  "Columbus, OH::CMH Airport - Columbus, OH": {
+    "All Tier":   { rooms: 4801, props:  39 }, "Lower Tier": { rooms:  331, props:   2 },
+    "Mid Tier":   { rooms: 2049, props:  21 }, "Upper Tier": { rooms: 2421, props:  16 } },
+  "Columbus, OH::Columbus South - Columbus, OH": {
+    "All Tier":   { rooms: 4192, props:  47 }, "Lower Tier": { rooms: 1422, props:  14 },
+    "Mid Tier":   { rooms: 2342, props:  29 }, "Upper Tier": { rooms:  428, props:   4 } },
+  "Columbus, OH::Columbus West - Columbus, OH": {
+    "All Tier":   { rooms: 5003, props:  48 }, "Lower Tier": { rooms:  811, props:   9 },
+    "Mid Tier":   { rooms: 2017, props:  24 }, "Upper Tier": { rooms: 2175, props:  15 } },
+  "Columbus, OH::Downtown Columbus - Columbus, OH": {
+    "All Tier":   { rooms: 8261, props:  49 }, "Lower Tier": { rooms:  635, props:   6 },
+    "Mid Tier":   { rooms: 1553, props:  14 }, "Upper Tier": { rooms: 6073, props:  29 } },
+  "Columbus, OH::Newark - Columbus, OH": {
+    "All Tier":   { rooms: 1648, props:  20 }, "Lower Tier": { rooms:  439, props:   5 },
+    "Mid Tier":   { rooms:  639, props:   8 }, "Upper Tier": { rooms:  570, props:   7 } },
+  "Columbus, OH::Worthington/Westerville - Columbus, OH": {
+    "All Tier":   { rooms: 7069, props:  59 }, "Lower Tier": { rooms: 1972, props:  19 },
+    "Mid Tier":   { rooms: 2230, props:  23 }, "Upper Tier": { rooms: 2867, props:  17 } },
+  "Dayton, OH": {
+    "All Tier":   { rooms:12367, props: 137 }, "Lower Tier": { rooms: 2599, props:  32 },
+    "Mid Tier":   { rooms: 6405, props:  76 }, "Upper Tier": { rooms: 3363, props:  29 } },
+  "Dayton, OH::Dayton Northeast/Fairborn - Dayton, OH": {
+    "All Tier":   { rooms: 2691, props:  29 }, "Lower Tier": { rooms:  433, props:   5 },
+    "Mid Tier":   { rooms: 1598, props:  19 }, "Upper Tier": { rooms:  660, props:   5 } },
+  "Dayton, OH::Dayton South/Miamisburg - Dayton, OH": {
+    "All Tier":   { rooms: 2711, props:  27 }, "Lower Tier": { rooms:  710, props:   7 },
+    "Mid Tier":   { rooms: 1082, props:  12 }, "Upper Tier": { rooms:  919, props:   8 } },
+  "Dayton, OH::Downtown/DAY Airport - Dayton, OH": {
+    "All Tier":   { rooms: 4575, props:  50 }, "Lower Tier": { rooms:  918, props:  11 },
+    "Mid Tier":   { rooms: 2227, props:  28 }, "Upper Tier": { rooms: 1430, props:  11 } },
+  "Dayton, OH::Springfield - Dayton, OH": {
+    "All Tier":   { rooms: 1095, props:  16 }, "Lower Tier": { rooms:  348, props:   6 },
+    "Mid Tier":   { rooms:  579, props:   7 }, "Upper Tier": { rooms:  168, props:   3 } },
+  "Dayton, OH::Tipp City/Troy - Dayton, OH": {
+    "All Tier":   { rooms: 1295, props:  15 }, "Lower Tier": { rooms:  190, props:   3 },
+    "Mid Tier":   { rooms:  919, props:  10 }, "Upper Tier": { rooms:  186, props:   2 } },
+  "Ohio State Area, OH": {
+    "All Tier":   { rooms:27249, props: 412 }, "Lower Tier": { rooms: 6291, props: 100 },
+    "Mid Tier":   { rooms:17506, props: 253 }, "Upper Tier": { rooms: 3452, props:  59 } },
+  "Ohio State Area, OH::Findlay - Ohio State Area, OH": {
+    "All Tier":   { rooms: 1272, props:  15 }, "Lower Tier": { rooms:  255, props:   3 },
+    "Mid Tier":   { rooms:  585, props:   8 }, "Upper Tier": { rooms:  432, props:   4 } },
+  "Ohio State Area, OH::I70 Corridor - Ohio State Area, OH": {
+    "All Tier":   { rooms: 2091, props:  24 }, "Lower Tier": { rooms:  690, props:   9 },
+    "Mid Tier":   { rooms:  997, props:  13 }, "Upper Tier": { rooms:  404, props:   2 } },
+  "Ohio State Area, OH::Lima - Ohio State Area, OH": {
+    "All Tier":   { rooms: 1435, props:  16 }, "Lower Tier": { rooms:  477, props:   6 },
+    "Mid Tier":   { rooms:  859, props:   9 }, "Upper Tier": { rooms:   99, props:   1 } },
+  "Ohio State Area, OH::Mansfield/Ashland - Ohio State Area, OH": {
+    "All Tier":   { rooms: 1902, props:  27 }, "Lower Tier": { rooms:  567, props:   9 },
+    "Mid Tier":   { rooms: 1209, props:  16 }, "Upper Tier": { rooms:  126, props:   2 } },
+  "Ohio State Area, OH::Ohio North - Ohio State Area, OH": {
+    "All Tier":   { rooms:13992, props: 231 }, "Lower Tier": { rooms: 3060, props:  51 },
+    "Mid Tier":   { rooms: 8984, props: 138 }, "Upper Tier": { rooms: 1948, props:  42 } },
+  "Ohio State Area, OH::Ohio South - Ohio State Area, OH": {
+    "All Tier":   { rooms: 6557, props:  99 }, "Lower Tier": { rooms: 1242, props:  22 },
+    "Mid Tier":   { rooms: 4872, props:  69 }, "Upper Tier": { rooms:  443, props:   8 } },
+  "Sandusky, OH": {
+    "All Tier":   { rooms: 5116, props:  43 }, "Lower Tier": { rooms:  846, props:  12 },
+    "Mid Tier":   { rooms: 2503, props:  26 }, "Upper Tier": { rooms: 1767, props:   5 } },
+  "Sandusky, OH::Sandusky, OH": {
+    "All Tier":   { rooms: 5116, props:  43 }, "Lower Tier": { rooms:  846, props:  12 },
+    "Mid Tier":   { rooms: 2503, props:  26 }, "Upper Tier": { rooms: 1767, props:   5 } },
+  "Toledo, OH": {
+    "All Tier":   { rooms: 7786, props:  78 }, "Lower Tier": { rooms: 1641, props:  19 },
+    "Mid Tier":   { rooms: 3720, props:  41 }, "Upper Tier": { rooms: 2425, props:  18 } },
+  "Toledo, OH::Toledo East - Toledo, OH": {
+    "All Tier":   { rooms: 3333, props:  35 }, "Lower Tier": { rooms:  691, props:   9 },
+    "Mid Tier":   { rooms: 1924, props:  20 }, "Upper Tier": { rooms:  718, props:   6 } },
+  "Toledo, OH::Toledo West - Toledo, OH": {
+    "All Tier":   { rooms: 4453, props:  43 }, "Lower Tier": { rooms:  950, props:  10 },
+    "Mid Tier":   { rooms: 1796, props:  21 }, "Upper Tier": { rooms: 1707, props:  12 } },
+  "Youngstown, OH": {
+    "All Tier":   { rooms: 3279, props:  44 }, "Lower Tier": { rooms:  534, props:   9 },
+    "Mid Tier":   { rooms: 2144, props:  29 }, "Upper Tier": { rooms:  601, props:   6 } },
+  "Youngstown, OH::Youngstown, OH": {
+    "All Tier":   { rooms: 3279, props:  44 }, "Lower Tier": { rooms:  534, props:   9 },
+    "Mid Tier":   { rooms: 2144, props:  29 }, "Upper Tier": { rooms:  601, props:   6 } },
 };
 
 const METRICS = [
@@ -534,7 +624,7 @@ export default function KalibriDashboard() {
 
   const perfColSpan = METRICS.reduce((a, m) => a + (m.yoyKey ? 2 : 1), 0);
   const geoColSpan  = geoLevel === "submarket" ? 2 : 1;
-  const getSupply   = geo => SUPPLY[geo] || null;
+  const getSupply   = geo => SUPPLY[geo]?.[tier] || null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
