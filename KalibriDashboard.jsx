@@ -493,8 +493,9 @@ export default function KalibriDashboard() {
   const [tab, setTab] = useState("overview");
 
   // overview
-  const [sortKey, setSortKey] = useState("revpar_yoy");
-  const [sortDir, setSortDir] = useState("desc");
+  const [sortKey,  setSortKey]  = useState("revpar_yoy");
+  const [sortDir,  setSortDir]  = useState("desc");
+  const [ovStart,  setOvStart]  = useState("");
 
   // trend
   const [trendMetric, setTrendMetric] = useState("revpar");
@@ -560,7 +561,23 @@ export default function KalibriDashboard() {
       if (!m) return null;
       const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
       const mkt   = geoMeta[geo]?.market || "";
-      return { geo, label, mkt, m };
+
+      let displayM = m;
+      if (ovStart) {
+        const ms = computeTrailing(db.lookup, ovStart, geo, revType, tiers, losTiers, tw, periods);
+        if (ms) {
+          const chg = (v, b, isOcc) => v != null && b != null ? (isOcc ? v - b : (b > 0 ? v / b - 1 : null)) : null;
+          displayM = {
+            ...m,
+            occ_yoy:          chg(m.occ,          ms.occ,          true),
+            adr_yoy:          chg(m.adr,          ms.adr,          false),
+            revpar_yoy:       chg(m.revpar,       ms.revpar,       false),
+            booking_cost_yoy: chg(m.booking_cost, ms.booking_cost, false),
+            alos_yoy:         chg(m.alos,         ms.alos,         false),
+          };
+        }
+      }
+      return { geo, label, mkt, m: displayM };
     }).filter(Boolean);
 
     const dir = sortDir === "desc" ? -1 : 1;
@@ -571,7 +588,7 @@ export default function KalibriDashboard() {
       return dir * (bv - av);
     });
     return rows;
-  }, [db, filteredGeos, period1, revType, tiers, losTiers, tw, periods, sortKey, sortDir]);
+  }, [db, filteredGeos, period1, ovStart, revType, tiers, losTiers, tw, periods, sortKey, sortDir]);
 
   // ── Trend series ───────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
@@ -833,7 +850,7 @@ export default function KalibriDashboard() {
                 {METRICS.map(m => (
                   <optgroup key={m.key} label={m.label}>
                     <option value={m.key}>{m.label}</option>
-                    {m.yoyKey && <option value={m.yoyKey}>{m.label} YoY</option>}
+                    {m.yoyKey && <option value={m.yoyKey}>{m.label} {ovStart ? "% Chg" : "YoY"}</option>}
                   </optgroup>
                 ))}
               </select>
@@ -842,6 +859,19 @@ export default function KalibriDashboard() {
                 {sortDir === "desc" ? "↓" : "↑"}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Compare To (overview) */}
+        {tab === "overview" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={label9}>Compare To</label>
+            <select value={ovStart} onChange={e => setOvStart(e.target.value)} style={{ ...sel, minWidth:130 }}>
+              <option value="">Prior Year (YoY)</option>
+              {[...filteredPeriods].reverse().map(p => (
+                <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -920,7 +950,7 @@ export default function KalibriDashboard() {
                       <div style={{ marginTop:2, fontWeight:400, fontSize:8, fontFamily:"'IBM Plex Mono',monospace", textTransform:"none", letterSpacing:0 }}>
                         <span style={{ color:"#3b82f6" }}>{periodLabel(period1)}</span>
                         <span style={{ color:"#334155", margin:"0 4px" }}>vs</span>
-                        <span style={{ color:"#64748b" }}>prior year</span>
+                        <span style={{ color:"#64748b" }}>{ovStart ? periodLabel(ovStart) : "prior year"}</span>
                       </div>
                     </th>
                   </tr>
@@ -935,7 +965,7 @@ export default function KalibriDashboard() {
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:70 }}>Rooms</th>
                     {METRICS.map(m => m.yoyKey ? [
                       <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>{m.label}</th>,
-                      <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>YoY</th>,
+                      <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>{ovStart ? "% Chg" : "YoY"}</th>,
                     ] : (
                       <th key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:60 }}>{m.label}</th>
                     ))}
