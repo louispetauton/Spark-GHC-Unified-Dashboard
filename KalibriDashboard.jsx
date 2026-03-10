@@ -351,6 +351,7 @@ export default function KalibriDashboard() {
 
   // trend
   const [trendMetric, setTrendMetric] = useState("revpar");
+  const [yoyClip,     setYoyClip]     = useState(null); // null = no clip, else fraction e.g. 0.3
 
   // cagr
   const [cagrStart,      setCagrStart]      = useState("");
@@ -434,6 +435,9 @@ export default function KalibriDashboard() {
       .slice(0, 6)
       .map(g => g.geo);
 
+    const isYoY = trendMetric.endsWith("_yoy");
+    const applyClip = v => (isYoY && yoyClip != null && v != null) ? Math.max(-yoyClip, Math.min(yoyClip, v)) : v;
+
     const chartData = filteredPeriods
       .filter((_, i) => i % 3 === 0 || i === filteredPeriods.length - 1)
       .map(p => {
@@ -441,7 +445,8 @@ export default function KalibriDashboard() {
         for (const geo of topGeos) {
           const m = computeTrailing(db.lookup, p, geo, revType, tier, losTier, tw, periods);
           const lbl = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
-          row[lbl] = m?.[trendMetric] != null ? parseFloat(m[trendMetric].toFixed(6)) : null;
+          const raw = m?.[trendMetric] != null ? parseFloat(m[trendMetric].toFixed(6)) : null;
+          row[lbl] = applyClip(raw);
         }
         return row;
       });
@@ -797,6 +802,18 @@ export default function KalibriDashboard() {
                   {TREND_METRICS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
                 </select>
               </div>
+              {trendMetric.endsWith("_yoy") && (
+                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                  <label style={label9}>Axis Cap</label>
+                  <div style={{ display:"flex", gap:2 }}>
+                    {[null, 0.20, 0.30, 0.50].map(v => (
+                      <Btn key={String(v)} active={yoyClip===v} onClick={() => setYoyClip(v)} color="#8b5cf6">
+                        {v == null ? "None" : `±${v*100|0}%`}
+                      </Btn>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize:11, color:"#475569", alignSelf:"flex-end", paddingBottom:6 }}>
                 Top 6 · <span style={{ color:"#94a3b8" }}>{revType}</span> · <span style={{ color:"#64748b" }}>{tw.label}</span>
               </div>
