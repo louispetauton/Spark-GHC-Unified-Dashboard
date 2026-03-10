@@ -930,7 +930,7 @@ export default function KalibriDashboard() {
 
             {/* Table */}
             <div style={{ overflowX:"auto" }}>
-              <table style={{ borderCollapse:"collapse", width:"100%", fontSize:12, tableLayout:"auto" }}>
+              <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:12, tableLayout:"auto" }}>
                 <thead>
                   {/* Group banner row */}
                   <tr style={{ background:"#070f1e" }}>
@@ -955,7 +955,7 @@ export default function KalibriDashboard() {
                   </tr>
                   {/* Column labels row */}
                   <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
-                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:150, position:"sticky", left:0, background:"#0a1628", zIndex:2, boxShadow:"4px 0 8px #0a1628" }}>
+                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:150, position:"sticky", left:0, background:"#0a1628", zIndex:2, borderRight:"2px solid #1e293b" }}>
                       {geoLevel === "submarket" ? "Submarket" : "Market"}
                     </th>
                     {geoLevel === "submarket" && (
@@ -981,7 +981,7 @@ export default function KalibriDashboard() {
                         style={{ borderBottom:"1px solid #0d1526", background:bg }}
                         onMouseEnter={e => e.currentTarget.style.background="#1e293b"}
                         onMouseLeave={e => e.currentTarget.style.background=bg}>
-                        <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:0, background:bg, zIndex:1, boxShadow:"4px 0 8px rgba(10,22,40,0.9)" }}>
+                        <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:0, background:bg, zIndex:1, borderRight:"2px solid #1e293b" }}>
                           {row.label}
                         </td>
                         {geoLevel === "submarket" && (
