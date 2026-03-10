@@ -434,6 +434,9 @@ export default function KalibriDashboard() {
       .slice(0, 6)
       .map(g => g.geo);
 
+    const isYoY = trendMetric.endsWith("_yoy");
+    const clipVal = v => isYoY && v != null ? Math.max(-0.60, Math.min(0.60, v)) : v;
+
     const chartData = filteredPeriods
       .filter((_, i) => i % 3 === 0 || i === filteredPeriods.length - 1)
       .map(p => {
@@ -441,7 +444,8 @@ export default function KalibriDashboard() {
         for (const geo of topGeos) {
           const m = computeTrailing(db.lookup, p, geo, revType, tier, losTier, tw, periods);
           const lbl = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
-          row[lbl] = m?.[trendMetric] != null ? parseFloat(m[trendMetric].toFixed(6)) : null;
+          const raw = m?.[trendMetric] != null ? parseFloat(m[trendMetric].toFixed(6)) : null;
+          row[lbl] = clipVal(raw);
         }
         return row;
       });
@@ -828,10 +832,7 @@ export default function KalibriDashboard() {
                 <YAxis
                   tick={{ fill:"#475569", fontSize:10 }}
                   tickFormatter={TREND_METRICS.find(m => m.key === trendMetric)?.tickFmt}
-                  domain={trendMetric.endsWith("_yoy")
-                    ? [d => Math.floor(Math.max(d, -0.6) * 20) / 20, d => Math.ceil(Math.min(d, 0.6) * 20) / 20]
-                    : ["auto","auto"]}
-                  allowDataOverflow={trendMetric.endsWith("_yoy")}
+                  domain={["auto","auto"]}
                   width={60}
                 />
                 <Tooltip content={<CustomTooltip lastActual={lastActual} metricKey={trendMetric}/>}/>
