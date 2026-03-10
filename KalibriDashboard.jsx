@@ -544,10 +544,12 @@ export default function KalibriDashboard() {
       {/* ── Header ── */}
       <div style={{ background:"#0f172a", borderBottom:"1px solid #1e293b", padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
-          <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:2 }}>
-            <span style={{ fontSize:13, fontWeight:800, color:"#f8fafc", letterSpacing:-0.5, fontFamily:"'IBM Plex Mono',monospace" }}>spark</span>
-            <span style={{ fontSize:11, fontWeight:700, color:"#3b82f6", fontFamily:"'IBM Plex Mono',monospace", letterSpacing:1 }}>GHC</span>
-            <span style={{ fontSize:9, color:"#334155", letterSpacing:2, textTransform:"uppercase", fontFamily:"'IBM Plex Mono',monospace" }}>· Asset Management</span>
+          <div style={{ marginBottom:4 }}>
+            <img
+              src="https://images.squarespace-cdn.com/content/v1/634ecc23e6a1eb0116ad3e64/b7f36457-07a7-4f6f-94fb-081608156032/SGHC+LogoDeck_MainWH.png"
+              alt="Spark GHC"
+              style={{ height:28, objectFit:"contain" }}
+            />
           </div>
           <div style={{ fontSize:18, fontWeight:700, color:"#f8fafc", letterSpacing:-0.5 }}>Ohio Hospitality Analytics — Kalibri Labs</div>
         </div>
