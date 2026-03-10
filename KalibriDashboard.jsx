@@ -205,6 +205,55 @@ function chgColor(v, isOcc = false) {
 
 const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
 
+// ── Supply data (from participation list) ─────────────────────────────────
+const SUPPLY = {
+  "Akron, OH":                                                   { rooms:9804,  props:110 },
+  "Cincinnati, OH":                                              { rooms:32274, props:291 },
+  "Cleveland, OH":                                               { rooms:21674, props:166 },
+  "Columbus, OH":                                                { rooms:30974, props:262 },
+  "Dayton, OH":                                                  { rooms:12367, props:137 },
+  "Ohio State Area, OH":                                         { rooms:27249, props:412 },
+  "Sandusky, OH":                                                { rooms:5116,  props:43  },
+  "Toledo, OH":                                                  { rooms:7786,  props:78  },
+  "Youngstown, OH":                                              { rooms:3279,  props:44  },
+  "Akron, OH::Akron - Akron, OH":                                { rooms:2563,  props:29  },
+  "Akron, OH::Akron West - Akron, OH":                           { rooms:2876,  props:33  },
+  "Akron, OH::Canton - Akron, OH":                               { rooms:2602,  props:28  },
+  "Akron, OH::Twinsburg/Streetsboro - Akron, OH":                { rooms:1763,  props:20  },
+  "Cincinnati, OH::CVG Airport - Cincinnati, OH":                { rooms:5904,  props:54  },
+  "Cincinnati, OH::Cincinnati East - Cincinnati, OH":            { rooms:2306,  props:23  },
+  "Cincinnati, OH::Cincinnati North - Cincinnati, OH":           { rooms:12681, props:115 },
+  "Cincinnati, OH::Cincinnati West - Cincinnati, OH":            { rooms:1561,  props:20  },
+  "Cincinnati, OH::Downtown Cincinnati - Cincinnati, OH":        { rooms:8407,  props:57  },
+  "Cincinnati, OH::Franklin - Cincinnati, OH":                   { rooms:1415,  props:22  },
+  "Cleveland, OH::Avon/I90 West - Cleveland, OH":                { rooms:5483,  props:50  },
+  "Cleveland, OH::Cleveland Heights - Cleveland, OH":            { rooms:1925,  props:20  },
+  "Cleveland, OH::Cleveland Southeast - Cleveland, OH":          { rooms:3328,  props:29  },
+  "Cleveland, OH::Downtown Cleveland - Cleveland, OH":           { rooms:6539,  props:32  },
+  "Cleveland, OH::Strongsville/Medina - Cleveland, OH":          { rooms:4399,  props:35  },
+  "Columbus, OH::CMH Airport - Columbus, OH":                    { rooms:4801,  props:39  },
+  "Columbus, OH::Columbus South - Columbus, OH":                 { rooms:4192,  props:47  },
+  "Columbus, OH::Columbus West - Columbus, OH":                  { rooms:5003,  props:48  },
+  "Columbus, OH::Downtown Columbus - Columbus, OH":              { rooms:8261,  props:49  },
+  "Columbus, OH::Newark - Columbus, OH":                         { rooms:1648,  props:20  },
+  "Columbus, OH::Worthington/Westerville - Columbus, OH":        { rooms:7069,  props:59  },
+  "Dayton, OH::Dayton Northeast/Fairborn - Dayton, OH":          { rooms:2691,  props:29  },
+  "Dayton, OH::Dayton South/Miamisburg - Dayton, OH":            { rooms:2711,  props:27  },
+  "Dayton, OH::Downtown/DAY Airport - Dayton, OH":               { rooms:4575,  props:50  },
+  "Dayton, OH::Springfield - Dayton, OH":                        { rooms:1095,  props:16  },
+  "Dayton, OH::Tipp City/Troy - Dayton, OH":                     { rooms:1295,  props:15  },
+  "Ohio State Area, OH::Findlay - Ohio State Area, OH":          { rooms:1272,  props:15  },
+  "Ohio State Area, OH::I70 Corridor - Ohio State Area, OH":     { rooms:2091,  props:24  },
+  "Ohio State Area, OH::Lima - Ohio State Area, OH":             { rooms:1435,  props:16  },
+  "Ohio State Area, OH::Mansfield/Ashland - Ohio State Area, OH":{ rooms:1902,  props:27  },
+  "Ohio State Area, OH::Ohio North - Ohio State Area, OH":       { rooms:13992, props:231 },
+  "Ohio State Area, OH::Ohio South - Ohio State Area, OH":       { rooms:6557,  props:99  },
+  "Sandusky, OH::Sandusky, OH":                                  { rooms:5116,  props:43  },
+  "Toledo, OH::Toledo East - Toledo, OH":                        { rooms:3333,  props:35  },
+  "Toledo, OH::Toledo West - Toledo, OH":                        { rooms:4453,  props:43  },
+  "Youngstown, OH::Youngstown, OH":                              { rooms:3279,  props:44  },
+};
+
 const METRICS = [
   { key:"occ",          label:"Occupancy",       yoyKey:"occ_yoy",          valFmt: fmt.occ,    yoyFmt: fmt.pp,  isOcc:true },
   { key:"adr",          label:"ADR",              yoyKey:"adr_yoy",          valFmt: fmt.dollar, yoyFmt: fmt.pct },
@@ -214,11 +263,16 @@ const METRICS = [
 ];
 
 const TREND_METRICS = [
-  { key:"revpar",       label:"RevPAR",          tickFmt: v => "$" + v.toFixed(0) },
-  { key:"occ",          label:"Occupancy",       tickFmt: v => (v * 100).toFixed(0) + "%" },
-  { key:"adr",          label:"ADR",             tickFmt: v => "$" + v.toFixed(0) },
-  { key:"booking_cost", label:"Booking Cost/RN", tickFmt: v => "$" + v.toFixed(2) },
-  { key:"alos",         label:"ALOS",            tickFmt: v => v.toFixed(1) },
+  { key:"revpar",           label:"RevPAR",              tickFmt: v => "$"+v.toFixed(0),              valFmt: v => "$"+v.toFixed(2) },
+  { key:"revpar_yoy",       label:"RevPAR % Chg (YoY)",  tickFmt: v => (v*100).toFixed(1)+"%",        valFmt: v => (v>=0?"+":"")+(v*100).toFixed(1)+"%" },
+  { key:"occ",              label:"Occupancy",           tickFmt: v => (v*100).toFixed(0)+"%",         valFmt: v => (v*100).toFixed(1)+"%" },
+  { key:"occ_yoy",          label:"Occupancy Chg (YoY)", tickFmt: v => (v*100).toFixed(1)+"pp",        valFmt: v => (v>=0?"+":"")+(v*100).toFixed(1)+"pp" },
+  { key:"adr",              label:"ADR",                 tickFmt: v => "$"+v.toFixed(0),              valFmt: v => "$"+v.toFixed(2) },
+  { key:"adr_yoy",          label:"ADR % Chg (YoY)",     tickFmt: v => (v*100).toFixed(1)+"%",        valFmt: v => (v>=0?"+":"")+(v*100).toFixed(1)+"%" },
+  { key:"booking_cost",     label:"Booking Cost/RN",     tickFmt: v => "$"+v.toFixed(2),              valFmt: v => "$"+v.toFixed(2) },
+  { key:"booking_cost_yoy", label:"Booking Cost % Chg",  tickFmt: v => (v*100).toFixed(1)+"%",        valFmt: v => (v>=0?"+":"")+(v*100).toFixed(1)+"%" },
+  { key:"alos",             label:"ALOS",                tickFmt: v => v.toFixed(1),                  valFmt: v => v.toFixed(2) },
+  { key:"alos_yoy",         label:"ALOS % Chg (YoY)",    tickFmt: v => (v*100).toFixed(1)+"%",        valFmt: v => (v>=0?"+":"")+(v*100).toFixed(1)+"%" },
 ];
 
 const CAGR_SORT_OPTIONS = [
@@ -244,10 +298,19 @@ const LOS_OPTIONS = [
   { value:"30+",  label:"30+ Nights"  },
 ];
 
-function CustomTooltip({ active, payload, label, lastActual }) {
+function CustomTooltip({ active, payload, label, lastActual, metricKey }) {
   if (!active || !payload?.length) return null;
   const period = payload[0]?.payload?.periodRaw;
   const isForecast = period && period > lastActual;
+  const metricDef = TREND_METRICS.find(m => m.key === metricKey);
+  const formatVal = v => {
+    if (v == null || typeof v !== "number") return "—";
+    if (metricDef) return metricDef.valFmt(v);
+    // fallback heuristic
+    if (v > 1)                 return "$" + v.toFixed(2);
+    if (v > 0 && v < 0.1)     return (v * 100).toFixed(1) + "%";
+    return v.toFixed(2);
+  };
   return (
     <div style={{ background:"#1e293b", border:`1px solid ${isForecast?"#f59e0b44":"#334155"}`, borderRadius:8, padding:"10px 14px", fontSize:11 }}>
       <div style={{ marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
@@ -257,15 +320,7 @@ function CustomTooltip({ active, payload, label, lastActual }) {
       {payload.map((p, i) => (
         <div key={i} style={{ display:"flex", justifyContent:"space-between", gap:16, color:p.color, marginBottom:2 }}>
           <span style={{ color:"#64748b" }}>{p.name}</span>
-          <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
-            {p.value != null ? (
-              typeof p.value === "number"
-                ? (p.value > 1 ? ("$" + p.value.toFixed(2))
-                  : p.value < 0.1 && p.value > 0 ? ((p.value * 100).toFixed(1) + "%")
-                  : p.value.toFixed(2))
-                : p.value
-            ) : "—"}
-          </span>
+          <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>{formatVal(p.value)}</span>
         </div>
       ))}
     </div>
@@ -474,6 +529,7 @@ export default function KalibriDashboard() {
 
   const perfColSpan = METRICS.reduce((a, m) => a + (m.yoyKey ? 2 : 1), 0);
   const geoColSpan  = geoLevel === "submarket" ? 2 : 1;
+  const getSupply   = geo => SUPPLY[geo] || null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -529,13 +585,9 @@ export default function KalibriDashboard() {
         {/* Time Window */}
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Time Window</label>
-          <div style={{ display:"flex", gap:2, background:"#0f172a", borderRadius:7, padding:2 }}>
+          <div style={{ display:"flex", gap:2 }}>
             {TIME_WINDOWS.map(t => (
-              <button key={t.id} onClick={() => setTimeWindow(t.id)} style={{
-                padding:"4px 12px", borderRadius:5, border:"none", cursor:"pointer", fontSize:11, fontWeight:600,
-                background: timeWindow === t.id ? "#3b82f6" : "transparent",
-                color:      timeWindow === t.id ? "#fff"    : "#64748b",
-              }}>{t.label}</button>
+              <Btn key={t.id} active={timeWindow===t.id} onClick={() => setTimeWindow(t.id)} color="#3b82f6">{t.label}</Btn>
             ))}
           </div>
         </div>
@@ -619,10 +671,13 @@ export default function KalibriDashboard() {
         <div style={{ flex:1 }}/>
 
         {/* Tabs */}
-        <div style={{ display:"flex", gap:2 }}>
-          {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"]].map(([id, lbl]) => (
-            <Btn key={id} active={tab===id} onClick={() => setTab(id)}>{lbl}</Btn>
-          ))}
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Analysis</label>
+          <div style={{ display:"flex", gap:2 }}>
+            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"]].map(([id, lbl]) => (
+              <Btn key={id} active={tab===id} onClick={() => setTab(id)} color="#6366f1">{lbl}</Btn>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -656,6 +711,11 @@ export default function KalibriDashboard() {
                   {/* Group banner row */}
                   <tr style={{ background:"#070f1e" }}>
                     <th colSpan={geoColSpan} style={{ background:"#070f1e", padding:"4px 0" }}/>
+                    <th colSpan={1} style={{
+                      background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6",
+                      textTransform:"uppercase", letterSpacing:1, textAlign:"center",
+                      borderTop:"2px solid #3b82f655", borderLeft:"1px solid #0d1526",
+                    }}>Supply</th>
                     <th colSpan={perfColSpan} style={{
                       background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981",
                       textTransform:"uppercase", letterSpacing:1, textAlign:"center",
@@ -677,6 +737,7 @@ export default function KalibriDashboard() {
                     {geoLevel === "submarket" && (
                       <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:80 }}>Market</th>
                     )}
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:70 }}>Rooms</th>
                     {METRICS.map(m => m.yoyKey ? [
                       <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:70 }}>{m.label}</th>,
                       <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>YoY</th>,
@@ -702,6 +763,9 @@ export default function KalibriDashboard() {
                         {geoLevel === "submarket" && (
                           <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap" }}>{row.mkt}</td>
                         )}
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                          {(() => { const s = getSupply(row.geo); return s ? s.rooms.toLocaleString() : "—"; })()}
+                        </td>
                         {METRICS.map(m => m.yoyKey ? [
                           <td key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#cbd5e1", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
                             {m.valFmt(row.m[m.key])}
@@ -767,7 +831,7 @@ export default function KalibriDashboard() {
                   domain={["auto","auto"]}
                   width={60}
                 />
-                <Tooltip content={<CustomTooltip lastActual={lastActual}/>}/>
+                <Tooltip content={<CustomTooltip lastActual={lastActual} metricKey={trendMetric}/>}/>
                 {showForecast && forecastStartLabel && (
                   <ReferenceLine x={forecastStartLabel} stroke="#f59e0b" strokeDasharray="6 3" strokeWidth={1.5}
                     label={{ value:"Forecast →", fill:"#f59e0b", fontSize:9, position:"top" }}/>
@@ -823,7 +887,7 @@ export default function KalibriDashboard() {
                 <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
                   {CAGR_SORT_OPTIONS.find(o => o.key === cagrChartMetric)?.label} · Top {Math.min(cagrRows.length, 20)} geographies · sorted by {CAGR_SORT_OPTIONS.find(o => o.key === cagrSortKey)?.label}
                 </div>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={340}>
                   <BarChart data={cagrRows.slice(0, 20)} margin={{ top:5, right:20, bottom:90, left:20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
                     <XAxis dataKey="label" tick={{ fill:"#475569", fontSize:9 }} angle={-45} textAnchor="end" height={80} interval={0}/>
