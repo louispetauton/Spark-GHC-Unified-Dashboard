@@ -452,7 +452,7 @@ export default function KalibriDashboard() {
       });
 
     return { series: topGeos.map(g => geoMeta[g]?.submarket || geoMeta[g]?.market || g), chartData };
-  }, [db, filteredGeos, period1, revType, tier, losTier, tw, periods, trendMetric, filteredPeriods]);
+  }, [db, filteredGeos, period1, revType, tier, losTier, tw, periods, trendMetric, filteredPeriods, yoyClip]);
 
   // ── CAGR rows ──────────────────────────────────────────────────────────────
   const cagrRows = useMemo(() => {
