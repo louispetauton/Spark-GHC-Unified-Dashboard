@@ -118,6 +118,55 @@ function getMetrics(lookup, period, geoKey, revType, tier, losTier) {
   return lookup[period]?.[geoKey]?.[revType]?.[tier]?.[losTier] ?? null;
 }
 
+// ── Trailing window helpers ─────────────────────────────────────────────────
+function getTrailingPeriods(allPeriods, endPeriod, tw) {
+  if (tw.id === "ytd") {
+    const [y] = endPeriod.split("-");
+    return allPeriods.filter(p => p >= `${y}-01` && p <= endPeriod);
+  }
+  if (tw.id === "mo") return allPeriods.includes(endPeriod) ? [endPeriod] : [];
+  return allPeriods.filter(p => p <= endPeriod).slice(-tw.months);
+}
+
+function avgMetrics(mList) {
+  const keys = ["occ","adr","revpar","booking_cost","alos"];
+  const out = {};
+  for (const k of keys) {
+    const vals = mList.map(m => m?.[k]).filter(v => v != null);
+    out[k] = vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null;
+  }
+  return out;
+}
+
+// Returns aggregated metrics for a trailing window ending at endPeriod.
+// For "Month" mode returns stored row (incl. stored YoY).
+// For other modes, aggregates by arithmetic mean and recomputes YoY vs same
+// window ending 12 months prior. (Proper Occ/ADR weighting requires room
+// supply data — will be refined once supply counts are available.)
+function computeTrailing(lookup, endPeriod, geoKey, revType, tier, losTier, tw, allPeriods) {
+  if (tw.id === "mo") return getMetrics(lookup, endPeriod, geoKey, revType, tier, losTier);
+
+  const ps = getTrailingPeriods(allPeriods, endPeriod, tw);
+  if (!ps.length) return null;
+  const curr = avgMetrics(ps.map(p => getMetrics(lookup, p, geoKey, revType, tier, losTier)));
+  if (curr.occ == null && curr.revpar == null) return null;
+
+  // YoY: same trailing window ending 12 months prior
+  const [y, mo] = endPeriod.split("-");
+  const priorEnd = `${parseInt(y) - 1}-${mo}`;
+  const priorPs  = getTrailingPeriods(allPeriods, priorEnd, tw);
+  if (priorPs.length) {
+    const prior = avgMetrics(priorPs.map(p => getMetrics(lookup, p, geoKey, revType, tier, losTier)));
+    curr.occ_yoy          = curr.occ != null && prior.occ != null ? curr.occ - prior.occ : null;
+    curr.adr_yoy          = curr.adr && prior.adr > 0 ? curr.adr / prior.adr - 1 : null;
+    curr.revpar_yoy       = curr.revpar && prior.revpar > 0 ? curr.revpar / prior.revpar - 1 : null;
+    curr.booking_cost_yoy = curr.booking_cost && prior.booking_cost > 0 ? curr.booking_cost / prior.booking_cost - 1 : null;
+    curr.alos_yoy         = curr.alos && prior.alos > 0 ? curr.alos / prior.alos - 1 : null;
+  }
+  return curr;
+}
+// ───────────────────────────────────────────────────────────────────────────
+
 function calcCAGR(v1, v2, years) {
   if (!v1 || !v2 || years <= 0 || v1 <= 0) return null;
   return Math.pow(v2 / v1, 1 / years) - 1;
@@ -162,6 +211,13 @@ const CAGR_SORT_OPTIONS = [
   { key:"revpar_cagr", label:"RevPAR CAGR" },
   { key:"adr_cagr",   label:"ADR CAGR"    },
   { key:"occ_delta",  label:"Occ Δ (pp)"  },
+];
+
+const TIME_WINDOWS = [
+  { id:"12mo", label:"12 Mo", months:12   },
+  { id:"3mo",  label:"3 Mo",  months:3    },
+  { id:"mo",   label:"Month", months:1    },
+  { id:"ytd",  label:"YTD",   months:null },
 ];
 
 const REV_TYPES   = ["Guest Paid", "Hotel Collected", "COPE"];
@@ -210,6 +266,7 @@ export default function KalibriDashboard() {
   const [period1,      setPeriod1]      = useState("");
   const [period2,      setPeriod2]      = useState("");
   const [showForecast, setShowForecast] = useState(false);
+  const [timeWindow, setTimeWindow]   = useState("mo");
 
   // tabs
   const [tab, setTab] = useState("overview");
@@ -253,6 +310,8 @@ export default function KalibriDashboard() {
     showForecast ? periods : periods.filter(p => p <= lastActual),
     [periods, showForecast, lastActual]
   );
+  const tw = useMemo(() => TIME_WINDOWS.find(t => t.id === timeWindow) || TIME_WINDOWS[2], [timeWindow]);
+
   const filteredGeos = useMemo(() => {
     if (!db) return [];
     return Object.entries(geoMeta)
@@ -271,7 +330,7 @@ export default function KalibriDashboard() {
   const overviewRows = useMemo(() => {
     if (!db || !period1) return [];
     const rows = filteredGeos.map(geo => {
-      const m = getMetrics(db.lookup, period1, geo, revType, tier, losTier);
+      const m = computeTrailing(db.lookup, period1, geo, revType, tier, losTier, tw, periods);
       if (!m) return null;
       const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
       const mkt   = geoMeta[geo]?.market || "";
@@ -286,13 +345,13 @@ export default function KalibriDashboard() {
       return dir * (bv - av);
     });
     return rows;
-  }, [db, filteredGeos, period1, revType, tier, losTier, sortKey, sortDir]);
+  }, [db, filteredGeos, period1, revType, tier, losTier, tw, periods, sortKey, sortDir]);
 
   // ── Trend series ───────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
     if (!db || !filteredGeos.length || !period1) return { series:[], chartData:[] };
     const topGeos = [...filteredGeos]
-      .map(g => ({ geo:g, val: getMetrics(db.lookup, period1, g, revType, tier, losTier)?.[trendMetric] || 0 }))
+      .map(g => ({ geo:g, val: computeTrailing(db.lookup, period1, g, revType, tier, losTier, tw, periods)?.[trendMetric] || 0 }))
       .sort((a, b) => b.val - a.val)
       .slice(0, 6)
       .map(g => g.geo);
@@ -302,7 +361,7 @@ export default function KalibriDashboard() {
       .map(p => {
         const row = { period: periodLabel(p), periodRaw: p };
         for (const geo of topGeos) {
-          const m = getMetrics(db.lookup, p, geo, revType, tier, losTier);
+          const m = computeTrailing(db.lookup, p, geo, revType, tier, losTier, tw, periods);
           const lbl = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
           const val = m?.[trendMetric];
           row[lbl] = val != null ? parseFloat(val.toFixed(6)) : null;
@@ -311,7 +370,7 @@ export default function KalibriDashboard() {
       });
 
     return { series: topGeos.map(g => geoMeta[g]?.submarket || geoMeta[g]?.market || g), chartData };
-  }, [db, filteredGeos, period1, revType, tier, losTier, trendMetric, filteredPeriods]);
+  }, [db, filteredGeos, period1, revType, tier, losTier, tw, periods, trendMetric, filteredPeriods]);
 
   // ── CAGR rows ──────────────────────────────────────────────────────────────
   const cagrRows = useMemo(() => {
@@ -319,8 +378,8 @@ export default function KalibriDashboard() {
     const [sy, sm] = cagrStart.split("-"), [ey, em] = cagrEnd.split("-");
     const years = (parseInt(ey) - parseInt(sy)) + (parseInt(em) - parseInt(sm)) / 12;
     const rows = filteredGeos.map(geo => {
-      const ms = getMetrics(db.lookup, cagrStart, geo, revType, tier, losTier);
-      const me = getMetrics(db.lookup, cagrEnd,   geo, revType, tier, losTier);
+      const ms = computeTrailing(db.lookup, cagrStart, geo, revType, tier, losTier, tw, periods);
+      const me = computeTrailing(db.lookup, cagrEnd,   geo, revType, tier, losTier, tw, periods);
       if (!ms?.revpar || !me?.revpar) return null;
       const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
       const mkt   = geoMeta[geo]?.market || "";
@@ -342,7 +401,7 @@ export default function KalibriDashboard() {
       return dir * (bv - av);
     });
     return rows;
-  }, [db, filteredGeos, cagrStart, cagrEnd, revType, tier, losTier, cagrSortKey, cagrSortDir]);
+  }, [db, filteredGeos, cagrStart, cagrEnd, revType, tier, losTier, tw, periods, cagrSortKey, cagrSortDir]);
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sel = {
@@ -434,6 +493,21 @@ export default function KalibriDashboard() {
         </div>
         <div style={{ width:1, height:22, background:"#1e293b" }}/>
 
+        {/* Time Window */}
+        <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+          <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1, fontFamily:"'IBM Plex Mono',monospace" }}>Time Window</span>
+          <div style={{ display:"flex", gap:2, background:"#0f172a", borderRadius:7, padding:2 }}>
+            {TIME_WINDOWS.map(t => (
+              <button key={t.id} onClick={() => setTimeWindow(t.id)} style={{
+                padding:"4px 12px", borderRadius:5, border:"none", cursor:"pointer", fontSize:11, fontWeight:600,
+                background: timeWindow === t.id ? "#3b82f6" : "transparent",
+                color:      timeWindow === t.id ? "#fff"    : "#64748b",
+              }}>{t.label}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ width:1, height:22, background:"#1e293b" }}/>
+
         {/* Geo Level */}
         <div style={{ display:"flex", gap:4 }}>
           <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market");    setMktFilter("All"); }} color="#f97316">Markets</Btn>
@@ -491,6 +565,9 @@ export default function KalibriDashboard() {
               <Btn active={sortDir==="asc"}  onClick={() => setSortDir("asc")}>↑ Asc</Btn>
               <span style={{ fontSize:11, color:"#334155", marginLeft:4 }}>
                 {overviewRows.length} {geoLevel === "market" ? "markets" : "submarkets"}
+                {" · "}
+                <span style={{ color:"#8b5cf6" }}>{tw.label}</span>
+                {timeWindow !== "mo" && <span style={{ color:"#475569", fontSize:9, marginLeft:4 }}>(avg — supply weighting pending)</span>}
                 {isForecast(period1) && <span style={{ color:"#f59e0b", marginLeft:6, fontSize:10 }}>▲ FORECAST PERIOD</span>}
               </span>
             </div>
