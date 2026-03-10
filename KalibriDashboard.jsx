@@ -832,6 +832,19 @@ export default function KalibriDashboard() {
           </select>
         </div>
 
+        {/* Compare To (overview) */}
+        {tab === "overview" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={label9}>Compare To</label>
+            <select value={ovStart} onChange={e => setOvStart(e.target.value)} style={{ ...sel, minWidth:130 }}>
+              <option value="">Prior Year (YoY)</option>
+              {[...filteredPeriods].reverse().map(p => (
+                <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Include Forecast */}
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Forecast</label>
@@ -859,19 +872,6 @@ export default function KalibriDashboard() {
                 {sortDir === "desc" ? "↓" : "↑"}
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Compare To (overview) */}
-        {tab === "overview" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-            <label style={label9}>Compare To</label>
-            <select value={ovStart} onChange={e => setOvStart(e.target.value)} style={{ ...sel, minWidth:130 }}>
-              <option value="">Prior Year (YoY)</option>
-              {[...filteredPeriods].reverse().map(p => (
-                <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>
-              ))}
-            </select>
           </div>
         )}
 
