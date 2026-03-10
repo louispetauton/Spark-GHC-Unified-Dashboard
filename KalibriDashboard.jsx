@@ -434,9 +434,6 @@ export default function KalibriDashboard() {
       .slice(0, 6)
       .map(g => g.geo);
 
-    const isYoY = trendMetric.endsWith("_yoy");
-    const clipVal = v => isYoY && v != null ? Math.max(-0.60, Math.min(0.60, v)) : v;
-
     const chartData = filteredPeriods
       .filter((_, i) => i % 3 === 0 || i === filteredPeriods.length - 1)
       .map(p => {
@@ -444,8 +441,7 @@ export default function KalibriDashboard() {
         for (const geo of topGeos) {
           const m = computeTrailing(db.lookup, p, geo, revType, tier, losTier, tw, periods);
           const lbl = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
-          const raw = m?.[trendMetric] != null ? parseFloat(m[trendMetric].toFixed(6)) : null;
-          row[lbl] = clipVal(raw);
+          row[lbl] = m?.[trendMetric] != null ? parseFloat(m[trendMetric].toFixed(6)) : null;
         }
         return row;
       });
