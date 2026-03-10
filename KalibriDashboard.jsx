@@ -765,6 +765,16 @@ export default function KalibriDashboard() {
           </div>
         </div>
 
+        {/* Aggregation disclaimer */}
+        {(tiers.length > 1 || losTiers.length > 1) && (
+          <div style={{ display:"flex", alignItems:"flex-start", gap:6, background:"#1e293b", border:"1px solid #f59e0b55", borderRadius:6, padding:"6px 10px", maxWidth:420 }}>
+            <span style={{ color:"#f59e0b", fontSize:13, lineHeight:1 }}>⚠</span>
+            <span style={{ color:"#94a3b8", fontSize:11, lineHeight:1.4 }}>
+              Multi-select aggregation is an approximation. Results use static room counts from the participation list as weights and will not exactly match <strong style={{ color:"#cbd5e1" }}>All Tier</strong> — Kalibri computes that as a single unified pool with dynamic monthly weights.
+            </span>
+          </div>
+        )}
+
         {/* Time Window */}
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Time Window</label>
