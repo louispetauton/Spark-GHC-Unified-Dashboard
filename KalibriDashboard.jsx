@@ -818,8 +818,8 @@ export default function KalibriDashboard() {
               )}
             </div>
 
-            <ResponsiveContainer width="100%" height={420}>
-              <LineChart data={trendData.chartData} margin={{ top:10, right:30, bottom:80, left:20 }}>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={trendData.chartData} margin={{ top:10, right:30, bottom:70, left:20 }}>
                 {showForecast && forecastStartLabel && (
                   <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
                 )}
