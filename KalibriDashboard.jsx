@@ -712,14 +712,13 @@ export default function KalibriDashboard() {
 
       {/* ── Header ── */}
       <div style={{ background:"#0f172a", borderBottom:"1px solid #1e293b", padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div>
-          <div style={{ marginBottom:4 }}>
-            <img
-              src="https://images.squarespace-cdn.com/content/v1/634ecc23e6a1eb0116ad3e64/b7f36457-07a7-4f6f-94fb-081608156032/SGHC+LogoDeck_MainWH.png"
-              alt="Spark GHC"
-              style={{ height:28, objectFit:"contain" }}
-            />
-          </div>
+        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+          <img
+            src="https://images.squarespace-cdn.com/content/v1/634ecc23e6a1eb0116ad3e64/b7f36457-07a7-4f6f-94fb-081608156032/SGHC+LogoDeck_MainWH.png"
+            alt="Spark GHC"
+            style={{ height:32, objectFit:"contain" }}
+          />
+          <div style={{ width:1, height:28, background:"#1e293b" }}/>
           <div style={{ fontSize:18, fontWeight:700, color:"#f8fafc", letterSpacing:-0.5 }}>Ohio Hospitality Analytics — Kalibri Labs</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -868,7 +867,7 @@ export default function KalibriDashboard() {
                 ))}
               </select>
               <button onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")}
-                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", padding:"6px 10px", fontSize:13, minWidth:34 }}>
+                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", minWidth:34 }}>
                 {sortDir === "desc" ? "↓" : "↑"}
               </button>
             </div>
@@ -884,7 +883,7 @@ export default function KalibriDashboard() {
                 {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
               </select>
               <button onClick={() => setCagrSortDir(d => d === "desc" ? "asc" : "desc")}
-                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", padding:"6px 10px", fontSize:13, minWidth:34 }}>
+                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", minWidth:34 }}>
                 {cagrSortDir === "desc" ? "↓" : "↑"}
               </button>
             </div>
