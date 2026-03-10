@@ -818,8 +818,8 @@ export default function KalibriDashboard() {
               )}
             </div>
 
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trendData.chartData} margin={{ top:10, right:30, bottom:70, left:20 }}>
+            <ResponsiveContainer width="100%" height={420}>
+              <LineChart data={trendData.chartData} margin={{ top:10, right:30, bottom:80, left:20 }}>
                 {showForecast && forecastStartLabel && (
                   <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
                 )}
@@ -828,7 +828,10 @@ export default function KalibriDashboard() {
                 <YAxis
                   tick={{ fill:"#475569", fontSize:10 }}
                   tickFormatter={TREND_METRICS.find(m => m.key === trendMetric)?.tickFmt}
-                  domain={["auto","auto"]}
+                  domain={trendMetric.endsWith("_yoy")
+                    ? [d => Math.floor(Math.max(d, -0.6) * 20) / 20, d => Math.ceil(Math.min(d, 0.6) * 20) / 20]
+                    : ["auto","auto"]}
+                  allowDataOverflow={trendMetric.endsWith("_yoy")}
                   width={60}
                 />
                 <Tooltip content={<CustomTooltip lastActual={lastActual} metricKey={trendMetric}/>}/>
@@ -840,7 +843,8 @@ export default function KalibriDashboard() {
                   label={{ value:"COVID", fill:"#ef4444", fontSize:9, position:"top" }}/>
                 {trendData.series.map((s, i) => (
                   <Line key={s} type="monotone" dataKey={s} stroke={COLORS[i % COLORS.length]}
-                    strokeWidth={2} dot={false} connectNulls activeDot={{ r:4 }}/>
+                    strokeWidth={2} dot={false} connectNulls activeDot={{ r:4 }}
+                    isAnimationActive={false}/>
                 ))}
               </LineChart>
             </ResponsiveContainer>
@@ -883,11 +887,11 @@ export default function KalibriDashboard() {
 
             {/* Bar chart */}
             {cagrRows.length > 0 && (
-              <div style={{ marginBottom:20 }}>
+              <div style={{ marginBottom:10 }}>
                 <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
                   {CAGR_SORT_OPTIONS.find(o => o.key === cagrChartMetric)?.label} · Top {Math.min(cagrRows.length, 20)} geographies · sorted by {CAGR_SORT_OPTIONS.find(o => o.key === cagrSortKey)?.label}
                 </div>
-                <ResponsiveContainer width="100%" height={340}>
+                <ResponsiveContainer width="100%" height={380}>
                   <BarChart data={cagrRows.slice(0, 20)} margin={{ top:5, right:20, bottom:90, left:20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
                     <XAxis dataKey="label" tick={{ fill:"#475569", fontSize:9 }} angle={-45} textAnchor="end" height={80} interval={0}/>
