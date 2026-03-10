@@ -1,0 +1,46 @@
+Level,Market,Submarket,Active Properties,Total Rooms
+Market,"Akron, OH",,110,9804
+Market,"Cincinnati, OH",,291,32274
+Market,"Cleveland, OH",,166,21674
+Market,"Columbus, OH",,262,30974
+Market,"Dayton, OH",,137,12367
+Market,"Ohio State Area, OH",,412,27249
+Market,"Sandusky, OH",,43,5116
+Market,"Toledo, OH",,78,7786
+Market,"Youngstown, OH",,44,3279
+Submarket,"Akron, OH","Akron - Akron, OH",29,2563
+Submarket,"Akron, OH","Akron West - Akron, OH",33,2876
+Submarket,"Akron, OH","Canton - Akron, OH",28,2602
+Submarket,"Akron, OH","Twinsburg/Streetsboro - Akron, OH",20,1763
+Submarket,"Cincinnati, OH","CVG Airport - Cincinnati, OH",54,5904
+Submarket,"Cincinnati, OH","Cincinnati East - Cincinnati, OH",23,2306
+Submarket,"Cincinnati, OH","Cincinnati North - Cincinnati, OH",115,12681
+Submarket,"Cincinnati, OH","Cincinnati West - Cincinnati, OH",20,1561
+Submarket,"Cincinnati, OH","Downtown Cincinnati - Cincinnati, OH",57,8407
+Submarket,"Cincinnati, OH","Franklin - Cincinnati, OH",22,1415
+Submarket,"Cleveland, OH","Avon/I90 West - Cleveland, OH",50,5483
+Submarket,"Cleveland, OH","Cleveland Heights - Cleveland, OH",20,1925
+Submarket,"Cleveland, OH","Cleveland Southeast - Cleveland, OH",29,3328
+Submarket,"Cleveland, OH","Downtown Cleveland - Cleveland, OH",32,6539
+Submarket,"Cleveland, OH","Strongsville/Medina - Cleveland, OH",35,4399
+Submarket,"Columbus, OH","CMH Airport - Columbus, OH",39,4801
+Submarket,"Columbus, OH","Columbus South - Columbus, OH",47,4192
+Submarket,"Columbus, OH","Columbus West - Columbus, OH",48,5003
+Submarket,"Columbus, OH","Downtown Columbus - Columbus, OH",49,8261
+Submarket,"Columbus, OH","Newark - Columbus, OH",20,1648
+Submarket,"Columbus, OH","Worthington/Westerville - Columbus, OH",59,7069
+Submarket,"Dayton, OH","Dayton Northeast/Fairborn - Dayton, OH",29,2691
+Submarket,"Dayton, OH","Dayton South/Miamisburg - Dayton, OH",27,2711
+Submarket,"Dayton, OH","Downtown/DAY Airport - Dayton, OH",50,4575
+Submarket,"Dayton, OH","Springfield - Dayton, OH",16,1095
+Submarket,"Dayton, OH","Tipp City/Troy - Dayton, OH",15,1295
+Submarket,"Ohio State Area, OH","Findlay - Ohio State Area, OH",15,1272
+Submarket,"Ohio State Area, OH","I70 Corridor - Ohio State Area, OH",24,2091
+Submarket,"Ohio State Area, OH","Lima - Ohio State Area, OH",16,1435
+Submarket,"Ohio State Area, OH","Mansfield/Ashland - Ohio State Area, OH",27,1902
+Submarket,"Ohio State Area, OH","Ohio North - Ohio State Area, OH",231,13992
+Submarket,"Ohio State Area, OH","Ohio South - Ohio State Area, OH",99,6557
+Submarket,"Sandusky, OH","Sandusky, OH",43,5116
+Submarket,"Toledo, OH","Toledo East - Toledo, OH",35,3333
+Submarket,"Toledo, OH","Toledo West - Toledo, OH",43,4453
+Submarket,"Youngstown, OH","Youngstown, OH",44,3279

@@ -128,27 +128,48 @@ function getTrailingPeriods(allPeriods, endPeriod, tw) {
   return allPeriods.filter(p => p <= endPeriod).slice(-tw.months);
 }
 
-function avgMetrics(mList) {
-  const keys = ["occ","adr","revpar","booking_cost","alos"];
-  const out = {};
-  for (const k of keys) {
-    const vals = mList.map(m => m?.[k]).filter(v => v != null);
-    out[k] = vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null;
+function getDaysInMonth(period) {
+  const [y, m] = period.split("-").map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+// Proper hospitality-weighted aggregation:
+//   Occ    = Σ(occ_i × days_i)    / Σ(days_i)          — days-weighted
+//   ADR    = Σ(revpar_i × days_i) / Σ(occ_i × days_i)  — demand-weighted (exact)
+//   RevPAR = Σ(revpar_i × days_i) / Σ(days_i)          — days-weighted
+//   ADR × Occ = RevPAR holds exactly under this scheme.
+function weightedMetrics(entries) {
+  let occNum=0, occDen=0, adrNum=0, adrDen=0;
+  let revNum=0, revDen=0, bcNum=0, bcDen=0, alosNum=0, alosDen=0;
+  for (const {period, m} of entries) {
+    if (!m) continue;
+    const d = getDaysInMonth(period);
+    if (m.occ    != null)                        { occNum  += m.occ    * d; occDen  += d; }
+    if (m.revpar != null)                        { revNum  += m.revpar * d; revDen  += d; }
+    if (m.revpar != null && m.occ != null && m.occ > 0) { adrNum += m.revpar * d; adrDen += m.occ * d; }
+    if (m.booking_cost != null && m.occ != null) { bcNum   += m.booking_cost * m.occ * d; bcDen   += m.occ * d; }
+    if (m.alos         != null && m.occ != null) { alosNum += m.alos         * m.occ * d; alosDen += m.occ * d; }
   }
-  return out;
+  return {
+    occ:          occDen  > 0 ? occNum  / occDen  : null,
+    adr:          adrDen  > 0 ? adrNum  / adrDen  : null,
+    revpar:       revDen  > 0 ? revNum  / revDen  : null,
+    booking_cost: bcDen   > 0 ? bcNum   / bcDen   : null,
+    alos:         alosDen > 0 ? alosNum / alosDen : null,
+  };
 }
 
 // Returns aggregated metrics for a trailing window ending at endPeriod.
-// For "Month" mode returns stored row (incl. stored YoY).
-// For other modes, aggregates by arithmetic mean and recomputes YoY vs same
-// window ending 12 months prior. (Proper Occ/ADR weighting requires room
-// supply data — will be refined once supply counts are available.)
+// "Month" mode returns the stored row (including stored YoY) unchanged.
+// Other modes use proper days/demand weighting and compute YoY vs the same
+// window ending 12 months prior.
 function computeTrailing(lookup, endPeriod, geoKey, revType, tier, losTier, tw, allPeriods) {
   if (tw.id === "mo") return getMetrics(lookup, endPeriod, geoKey, revType, tier, losTier);
 
   const ps = getTrailingPeriods(allPeriods, endPeriod, tw);
   if (!ps.length) return null;
-  const curr = avgMetrics(ps.map(p => getMetrics(lookup, p, geoKey, revType, tier, losTier)));
+  const entries = ps.map(p => ({ period: p, m: getMetrics(lookup, p, geoKey, revType, tier, losTier) }));
+  const curr = weightedMetrics(entries);
   if (curr.occ == null && curr.revpar == null) return null;
 
   // YoY: same trailing window ending 12 months prior
@@ -156,12 +177,12 @@ function computeTrailing(lookup, endPeriod, geoKey, revType, tier, losTier, tw, 
   const priorEnd = `${parseInt(y) - 1}-${mo}`;
   const priorPs  = getTrailingPeriods(allPeriods, priorEnd, tw);
   if (priorPs.length) {
-    const prior = avgMetrics(priorPs.map(p => getMetrics(lookup, p, geoKey, revType, tier, losTier)));
-    curr.occ_yoy          = curr.occ != null && prior.occ != null ? curr.occ - prior.occ : null;
-    curr.adr_yoy          = curr.adr && prior.adr > 0 ? curr.adr / prior.adr - 1 : null;
-    curr.revpar_yoy       = curr.revpar && prior.revpar > 0 ? curr.revpar / prior.revpar - 1 : null;
-    curr.booking_cost_yoy = curr.booking_cost && prior.booking_cost > 0 ? curr.booking_cost / prior.booking_cost - 1 : null;
-    curr.alos_yoy         = curr.alos && prior.alos > 0 ? curr.alos / prior.alos - 1 : null;
+    const prior = weightedMetrics(priorPs.map(p => ({ period: p, m: getMetrics(lookup, p, geoKey, revType, tier, losTier) })));
+    curr.occ_yoy          = curr.occ    != null && prior.occ    != null ? curr.occ - prior.occ : null;
+    curr.adr_yoy          = curr.adr    != null && prior.adr    > 0     ? curr.adr / prior.adr - 1 : null;
+    curr.revpar_yoy       = curr.revpar != null && prior.revpar > 0     ? curr.revpar / prior.revpar - 1 : null;
+    curr.booking_cost_yoy = curr.booking_cost != null && prior.booking_cost > 0 ? curr.booking_cost / prior.booking_cost - 1 : null;
+    curr.alos_yoy         = curr.alos   != null && prior.alos   > 0     ? curr.alos / prior.alos - 1 : null;
   }
   return curr;
 }
@@ -567,7 +588,7 @@ export default function KalibriDashboard() {
                 {overviewRows.length} {geoLevel === "market" ? "markets" : "submarkets"}
                 {" · "}
                 <span style={{ color:"#8b5cf6" }}>{tw.label}</span>
-                {timeWindow !== "mo" && <span style={{ color:"#475569", fontSize:9, marginLeft:4 }}>(avg — supply weighting pending)</span>}
+                {timeWindow !== "mo" && <span style={{ color:"#475569", fontSize:9, marginLeft:4 }}>(days-weighted)</span>}
                 {isForecast(period1) && <span style={{ color:"#f59e0b", marginLeft:6, fontSize:10 }}>▲ FORECAST PERIOD</span>}
               </span>
             </div>
