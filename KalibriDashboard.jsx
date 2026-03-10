@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell,
+  ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell, ReferenceArea,
 } from "recharts";
 
 // ─── DATA SOURCE ──────────────────────────────────────────────────────────────
@@ -41,7 +41,6 @@ function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/);
   const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
 
-  // lookup[period][geoKey][revType][tier][losTier] = metrics object
   const lookup = {};
   const geoMeta = {};
   let lastActual = null;
@@ -63,11 +62,11 @@ function parseCSV(text) {
     const row = {};
     headers.forEach((h, idx) => { row[h] = (vals[idx] ?? "").trim().replace(/^"|"$/g, ""); });
 
-    const market   = row["Market"];
+    const market    = row["Market"];
     const submarket = row["Submarket"];
-    const revType  = row["Revenue Type"];
-    const tier     = row["Tier"];
-    const losTier  = row["LOS Tier"] || "";
+    const revType   = row["Revenue Type"];
+    const tier      = row["Tier"];
+    const losTier   = row["LOS Tier"] || "";
     const periodRaw = row["Period"];
 
     if (!market || !revType || !tier || !periodRaw) continue;
@@ -79,7 +78,6 @@ function parseCSV(text) {
       geoMeta[geoKey] = { market, submarket: submarket || null, isSubmarket: !!submarket };
     }
 
-    // Detect last actual: ALOS present and not a dash means real data
     if (row["ALOS"] && row["ALOS"] !== "-" && row["ALOS"].trim() !== "") {
       if (!lastActual || period > lastActual) lastActual = period;
     }
@@ -109,7 +107,7 @@ function parseCSV(text) {
 async function loadData() {
   const res = await fetch(DATA_URL);
   if (!res.ok) throw new Error(
-    `Failed to load: ${res.status} ${res.statusText}\n\nMake sure ohio_kalibri_consolidated.csv is in your Replit /public folder.`
+    `Failed to fetch data: ${res.status} ${res.statusText}\n\nMake sure ohio_kalibri_consolidated.csv is in the /public folder in Replit.`
   );
   return parseCSV(await res.text());
 }
@@ -144,11 +142,11 @@ function weightedMetrics(entries) {
   for (const {period, m} of entries) {
     if (!m) continue;
     const d = getDaysInMonth(period);
-    if (m.occ    != null)                        { occNum  += m.occ    * d; occDen  += d; }
-    if (m.revpar != null)                        { revNum  += m.revpar * d; revDen  += d; }
-    if (m.revpar != null && m.occ != null && m.occ > 0) { adrNum += m.revpar * d; adrDen += m.occ * d; }
-    if (m.booking_cost != null && m.occ != null) { bcNum   += m.booking_cost * m.occ * d; bcDen   += m.occ * d; }
-    if (m.alos         != null && m.occ != null) { alosNum += m.alos         * m.occ * d; alosDen += m.occ * d; }
+    if (m.occ    != null)                                    { occNum  += m.occ    * d; occDen  += d; }
+    if (m.revpar != null)                                    { revNum  += m.revpar * d; revDen  += d; }
+    if (m.revpar != null && m.occ != null && m.occ > 0)     { adrNum  += m.revpar * d; adrDen  += m.occ * d; }
+    if (m.booking_cost != null && m.occ != null)             { bcNum   += m.booking_cost * m.occ * d; bcDen   += m.occ * d; }
+    if (m.alos         != null && m.occ != null)             { alosNum += m.alos         * m.occ * d; alosDen += m.occ * d; }
   }
   return {
     occ:          occDen  > 0 ? occNum  / occDen  : null,
@@ -159,10 +157,6 @@ function weightedMetrics(entries) {
   };
 }
 
-// Returns aggregated metrics for a trailing window ending at endPeriod.
-// "Month" mode returns the stored row (including stored YoY) unchanged.
-// Other modes use proper days/demand weighting and compute YoY vs the same
-// window ending 12 months prior.
 function computeTrailing(lookup, endPeriod, geoKey, revType, tier, losTier, tw, allPeriods) {
   if (tw.id === "mo") return getMetrics(lookup, endPeriod, geoKey, revType, tier, losTier);
 
@@ -172,7 +166,6 @@ function computeTrailing(lookup, endPeriod, geoKey, revType, tier, losTier, tw, 
   const curr = weightedMetrics(entries);
   if (curr.occ == null && curr.revpar == null) return null;
 
-  // YoY: same trailing window ending 12 months prior
   const [y, mo] = endPeriod.split("-");
   const priorEnd = `${parseInt(y) - 1}-${mo}`;
   const priorPs  = getTrailingPeriods(allPeriods, priorEnd, tw);
@@ -203,7 +196,7 @@ const fmt = {
 
 function chgColor(v, isOcc = false) {
   if (v == null) return "#475569";
-  const threshold = isOcc ? 0.005 : 0.05; // 0.5pp for occ, 5% for rates
+  const threshold = isOcc ? 0.005 : 0.05;
   if (v >  threshold) return "#4ade80";
   if (v >  0)         return "#86efac";
   if (v > -threshold) return "#fca5a5";
@@ -221,11 +214,11 @@ const METRICS = [
 ];
 
 const TREND_METRICS = [
-  { key:"revpar",        label:"RevPAR",          tickFmt: v => "$" + v.toFixed(0) },
-  { key:"occ",           label:"Occupancy",       tickFmt: v => (v * 100).toFixed(0) + "%" },
-  { key:"adr",           label:"ADR",             tickFmt: v => "$" + v.toFixed(0) },
-  { key:"booking_cost",  label:"Booking Cost/RN", tickFmt: v => "$" + v.toFixed(2) },
-  { key:"alos",          label:"ALOS",            tickFmt: v => v.toFixed(1) },
+  { key:"revpar",       label:"RevPAR",          tickFmt: v => "$" + v.toFixed(0) },
+  { key:"occ",          label:"Occupancy",       tickFmt: v => (v * 100).toFixed(0) + "%" },
+  { key:"adr",          label:"ADR",             tickFmt: v => "$" + v.toFixed(0) },
+  { key:"booking_cost", label:"Booking Cost/RN", tickFmt: v => "$" + v.toFixed(2) },
+  { key:"alos",         label:"ALOS",            tickFmt: v => v.toFixed(1) },
 ];
 
 const CAGR_SORT_OPTIONS = [
@@ -244,11 +237,11 @@ const TIME_WINDOWS = [
 const REV_TYPES   = ["Guest Paid", "Hotel Collected", "COPE"];
 const TIERS       = ["All Tier", "Lower Tier", "Mid Tier", "Upper Tier"];
 const LOS_OPTIONS = [
-  { value:"",     label:"Overview"   },
-  { value:"0-6",  label:"0–6 Nights" },
-  { value:"7-14", label:"7–14 Nights"},
+  { value:"",     label:"Overview"    },
+  { value:"0-6",  label:"0–6 Nights"  },
+  { value:"7-14", label:"7–14 Nights" },
   { value:"15-29",label:"15–29 Nights"},
-  { value:"30+",  label:"30+ Nights" },
+  { value:"30+",  label:"30+ Nights"  },
 ];
 
 function CustomTooltip({ active, payload, label, lastActual }) {
@@ -259,13 +252,19 @@ function CustomTooltip({ active, payload, label, lastActual }) {
     <div style={{ background:"#1e293b", border:`1px solid ${isForecast?"#f59e0b44":"#334155"}`, borderRadius:8, padding:"10px 14px", fontSize:11 }}>
       <div style={{ marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
         <span style={{ color:"#94a3b8", fontWeight:600 }}>{label}</span>
-        {isForecast && <span style={{ background:"#f59e0b22", color:"#f59e0b", fontSize:9, padding:"1px 6px", borderRadius:3, fontWeight:700 }}>FORECAST</span>}
+        {isForecast && <span style={{ background:"#f59e0b22", color:"#f59e0b", fontSize:9, padding:"1px 6px", borderRadius:3, fontWeight:700, letterSpacing:0.5 }}>FORECAST</span>}
       </div>
       {payload.map((p, i) => (
-        <div key={i} style={{ display:"flex", justifyContent:"space-between", gap:16, marginBottom:2 }}>
+        <div key={i} style={{ display:"flex", justifyContent:"space-between", gap:16, color:p.color, marginBottom:2 }}>
           <span style={{ color:"#64748b" }}>{p.name}</span>
-          <span style={{ color:p.color, fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
-            {p.value != null ? p.value.toFixed(4) : "—"}
+          <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
+            {p.value != null ? (
+              typeof p.value === "number"
+                ? (p.value > 1 ? ("$" + p.value.toFixed(2))
+                  : p.value < 0.1 && p.value > 0 ? ((p.value * 100).toFixed(1) + "%")
+                  : p.value.toFixed(2))
+                : p.value
+            ) : "—"}
           </span>
         </div>
       ))}
@@ -274,9 +273,9 @@ function CustomTooltip({ active, payload, label, lastActual }) {
 }
 
 export default function KalibriDashboard() {
-  const [db,         setDb]         = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [loadError,  setLoadError]  = useState(null);
+  const [db,          setDb]          = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [loadError,   setLoadError]   = useState(null);
 
   // filters
   const [revType,      setRevType]      = useState("Guest Paid");
@@ -285,9 +284,8 @@ export default function KalibriDashboard() {
   const [geoLevel,     setGeoLevel]     = useState("market");
   const [mktFilter,    setMktFilter]    = useState("All");
   const [period1,      setPeriod1]      = useState("");
-  const [period2,      setPeriod2]      = useState("");
   const [showForecast, setShowForecast] = useState(false);
-  const [timeWindow, setTimeWindow]   = useState("mo");
+  const [timeWindow,   setTimeWindow]   = useState("mo");
 
   // tabs
   const [tab, setTab] = useState("overview");
@@ -300,10 +298,11 @@ export default function KalibriDashboard() {
   const [trendMetric, setTrendMetric] = useState("revpar");
 
   // cagr
-  const [cagrStart,    setCagrStart]    = useState("");
-  const [cagrEnd,      setCagrEnd]      = useState("");
-  const [cagrSortKey,  setCagrSortKey]  = useState("revpar_cagr");
-  const [cagrSortDir,  setCagrSortDir]  = useState("desc");
+  const [cagrStart,      setCagrStart]      = useState("");
+  const [cagrEnd,        setCagrEnd]        = useState("");
+  const [cagrSortKey,    setCagrSortKey]    = useState("revpar_cagr");
+  const [cagrSortDir,    setCagrSortDir]    = useState("desc");
+  const [cagrChartMetric,setCagrChartMetric]= useState("revpar_cagr");
 
   useEffect(() => {
     loadData()
@@ -316,23 +315,21 @@ export default function KalibriDashboard() {
         const priorYear  = `${parseInt(y) - 1}-${mo}`;
         const sixYrPrior = `${parseInt(y) - 6}-${mo}`;
         setPeriod1(latestActual);
-        setPeriod2(allPeriods.includes(priorYear) ? priorYear : allPeriods[Math.max(0, allPeriods.indexOf(latestActual) - 12)]);
         setCagrEnd(latestActual);
         setCagrStart(allPeriods.includes(sixYrPrior) ? sixYrPrior : allPeriods[0]);
       })
       .catch(e => { setLoadError(e.message); setLoading(false); });
   }, []);
 
-  const periods       = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
-  const lastActual    = useMemo(() => db?.lastActual || "2026-02", [db]);
-  const geoMeta       = useMemo(() => db?.geoMeta || {}, [db]);
-  const markets       = useMemo(() => [...new Set(Object.values(geoMeta).map(g => g.market).filter(Boolean))].sort(), [geoMeta]);
+  const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
+  const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
+  const geoMeta         = useMemo(() => db?.geoMeta || {}, [db]);
+  const markets         = useMemo(() => [...new Set(Object.values(geoMeta).map(g => g.market).filter(Boolean))].sort(), [geoMeta]);
+  const tw              = useMemo(() => TIME_WINDOWS.find(t => t.id === timeWindow) || TIME_WINDOWS[2], [timeWindow]);
   const filteredPeriods = useMemo(() =>
     showForecast ? periods : periods.filter(p => p <= lastActual),
     [periods, showForecast, lastActual]
   );
-  const tw = useMemo(() => TIME_WINDOWS.find(t => t.id === timeWindow) || TIME_WINDOWS[2], [timeWindow]);
-
   const filteredGeos = useMemo(() => {
     if (!db) return [];
     return Object.entries(geoMeta)
@@ -346,6 +343,11 @@ export default function KalibriDashboard() {
   }, [geoMeta, geoLevel, mktFilter, db]);
 
   const isForecast = p => p > lastActual;
+
+  const forecastStartLabel = useMemo(() => {
+    const fp = filteredPeriods.filter((_, i) => i % 3 === 0 || i === filteredPeriods.length - 1).find(p => p > lastActual);
+    return fp ? periodLabel(fp) : null;
+  }, [filteredPeriods, lastActual]);
 
   // ── Overview rows ──────────────────────────────────────────────────────────
   const overviewRows = useMemo(() => {
@@ -384,8 +386,7 @@ export default function KalibriDashboard() {
         for (const geo of topGeos) {
           const m = computeTrailing(db.lookup, p, geo, revType, tier, losTier, tw, periods);
           const lbl = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
-          const val = m?.[trendMetric];
-          row[lbl] = val != null ? parseFloat(val.toFixed(6)) : null;
+          row[lbl] = m?.[trendMetric] != null ? parseFloat(m[trendMetric].toFixed(6)) : null;
         }
         return row;
       });
@@ -407,10 +408,11 @@ export default function KalibriDashboard() {
       return {
         geo, label, mkt,
         revpar_cagr: calcCAGR(ms.revpar, me.revpar, years),
-        adr_cagr:   calcCAGR(ms.adr,    me.adr,    years),
-        occ_delta:  ms.occ != null && me.occ != null ? me.occ - ms.occ : null,
-        ms_revpar:  ms.revpar,
-        me_revpar:  me.revpar,
+        adr_cagr:    calcCAGR(ms.adr,    me.adr,    years),
+        occ_delta:   ms.occ != null && me.occ != null ? me.occ - ms.occ : null,
+        ms_revpar: ms.revpar, me_revpar: me.revpar,
+        ms_adr:    ms.adr,    me_adr:    me.adr,
+        ms_occ:    ms.occ,    me_occ:    me.occ,
       };
     }).filter(Boolean);
 
@@ -433,28 +435,29 @@ export default function KalibriDashboard() {
   const Btn = ({ active, onClick, children, color="#3b82f6", style={} }) => (
     <button onClick={onClick} style={{
       ...btnBase,
-      background: active ? color : "#1e293b",
-      color:      active ? "#fff" : "#64748b",
-      border:     active ? "none" : "1px solid #334155",
+      background: active ? color     : "#1e293b",
+      color:      active ? "#fff"    : "#64748b",
+      border:     active ? "none"    : "1px solid #334155",
       ...style,
     }}>{children}</button>
   );
-  const thStyle = (align="right") => ({
-    textAlign: align, padding:"8px 10px", color:"#475569", fontWeight:600,
-    borderBottom:"1px solid #1e293b", whiteSpace:"nowrap", fontSize:11,
-  });
-  const tdStyle = (align="right") => ({
-    textAlign: align, padding:"7px 10px",
-    borderBottom:"1px solid #0d1525",
-    fontFamily:"'IBM Plex Mono',monospace", fontSize:11,
-  });
+  const label9 = { fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1 };
 
-  // ── Error / Loading states ─────────────────────────────────────────────────
+  // ── Error / Loading ────────────────────────────────────────────────────────
   if (loadError) return (
-    <div style={{ background:"#0f172a", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"monospace", padding:40 }}>
-      <div style={{ maxWidth:560 }}>
-        <div style={{ color:"#ef4444", fontWeight:700, fontSize:14, marginBottom:12 }}>⚠ Could not load data</div>
-        <pre style={{ color:"#475569", fontSize:11, lineHeight:1.7, background:"#1e293b", borderRadius:8, padding:"14px 18px", border:"1px solid #334155", whiteSpace:"pre-wrap" }}>{loadError}</pre>
+    <div style={{ background:"#0f172a", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'IBM Plex Mono',monospace", padding:40 }}>
+      <div style={{ maxWidth:560, textAlign:"center" }}>
+        <div style={{ fontSize:28, marginBottom:12, color:"#ef4444" }}>⚠</div>
+        <div style={{ color:"#f87171", fontWeight:700, fontSize:14, marginBottom:12 }}>Could not load data</div>
+        <div style={{ color:"#475569", fontSize:11, lineHeight:1.7, marginBottom:20, textAlign:"left", background:"#1e293b", borderRadius:8, padding:"14px 18px", border:"1px solid #334155" }}>
+          {loadError}
+        </div>
+        <div style={{ color:"#334155", fontSize:10, textAlign:"left" }}>
+          <div style={{ color:"#64748b", marginBottom:6, fontWeight:600 }}>TO FIX:</div>
+          <div>1. Open this file and find <span style={{ color:"#3b82f6" }}>DATA_URL</span> near the top</div>
+          <div>2. Make sure <span style={{ color:"#3b82f6" }}>ohio_kalibri_consolidated.csv</span> is in your Replit /public folder</div>
+          <div>3. Refresh the page</div>
+        </div>
       </div>
     </div>
   );
@@ -462,12 +465,15 @@ export default function KalibriDashboard() {
   if (loading) return (
     <div style={{ background:"#0f172a", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"monospace" }}>
       <div style={{ textAlign:"center", color:"#475569" }}>
-        <div style={{ fontSize:28, marginBottom:10 }}>⟳</div>
-        <div>Loading Kalibri data…</div>
+        <div style={{ fontSize:28, marginBottom:10, animation:"spin 1.5s linear infinite", display:"inline-block" }}>⟳</div>
+        <div style={{ marginTop:8 }}>Loading Kalibri data…</div>
         <div style={{ fontSize:10, color:"#334155", marginTop:6 }}>{DATA_URL}</div>
       </div>
     </div>
   );
+
+  const perfColSpan = METRICS.reduce((a, m) => a + (m.yoyKey ? 2 : 1), 0);
+  const geoColSpan  = geoLevel === "submarket" ? 2 : 1;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -484,39 +490,45 @@ export default function KalibriDashboard() {
           </div>
           <div style={{ fontSize:18, fontWeight:700, color:"#f8fafc", letterSpacing:-0.5 }}>Ohio Hospitality Analytics — Kalibri Labs</div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ fontSize:10, color:"#475569", fontFamily:"'IBM Plex Mono',monospace" }}>
-            Last actual: <span style={{ color:"#94a3b8" }}>{periodLabel(lastActual)}</span>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, background:"#3b82f611", border:"1px solid #3b82f633", borderRadius:6, padding:"4px 10px" }}>
+            <div style={{ width:6, height:6, borderRadius:"50%", background:"#3b82f6" }}/>
+            <span style={{ fontSize:10, color:"#3b82f6", fontFamily:"'IBM Plex Mono',monospace" }}>Kalibri Labs · Guest Paid / Hotel Collected / COPE</span>
           </div>
-          <Btn active={showForecast} onClick={() => setShowForecast(v => !v)} color="#f59e0b">
-            {showForecast ? "Hide Forecast" : "Show Forecast"}
-          </Btn>
+          <div style={{ fontSize:10, color:"#334155", fontFamily:"'IBM Plex Mono',monospace" }}>Last Actual: <span style={{ color:"#94a3b8" }}>{periodLabel(lastActual)}</span></div>
         </div>
       </div>
 
-      {/* ── Filter Bar ── */}
-      <div style={{ background:"#0b1120", borderBottom:"1px solid #1e293b", padding:"10px 28px", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+      {/* ── Global Controls ── */}
+      <div style={{ padding:"12px 28px", background:"#111827", borderBottom:"1px solid #1e293b", display:"flex", flexWrap:"wrap", gap:14, alignItems:"flex-end" }}>
+
         {/* Revenue Type */}
-        <div style={{ display:"flex", gap:4 }}>
-          {REV_TYPES.map(rt => <Btn key={rt} active={revType===rt} onClick={() => setRevType(rt)} color="#3b82f6">{rt}</Btn>)}
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Revenue Type</label>
+          <div style={{ display:"flex", gap:2 }}>
+            {REV_TYPES.map(rt => <Btn key={rt} active={revType===rt} onClick={() => setRevType(rt)} color="#3b82f6">{rt}</Btn>)}
+          </div>
         </div>
-        <div style={{ width:1, height:22, background:"#1e293b" }}/>
 
-        {/* Tier */}
-        <div style={{ display:"flex", gap:4 }}>
-          {TIERS.map(t => <Btn key={t} active={tier===t} onClick={() => setTier(t)} color="#10b981">{t.replace(" Tier","")}</Btn>)}
+        {/* Hotel Class */}
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Hotel Class</label>
+          <div style={{ display:"flex", gap:2 }}>
+            {TIERS.map(t => <Btn key={t} active={tier===t} onClick={() => setTier(t)} color="#10b981">{t.replace(" Tier","")}</Btn>)}
+          </div>
         </div>
-        <div style={{ width:1, height:22, background:"#1e293b" }}/>
 
-        {/* LOS */}
-        <div style={{ display:"flex", gap:4 }}>
-          {LOS_OPTIONS.map(l => <Btn key={l.value} active={losTier===l.value} onClick={() => setLosTier(l.value)} color="#8b5cf6">{l.label}</Btn>)}
+        {/* Length of Stay */}
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Length of Stay</label>
+          <div style={{ display:"flex", gap:2 }}>
+            {LOS_OPTIONS.map(l => <Btn key={l.value} active={losTier===l.value} onClick={() => setLosTier(l.value)} color="#8b5cf6">{l.label}</Btn>)}
+          </div>
         </div>
-        <div style={{ width:1, height:22, background:"#1e293b" }}/>
 
         {/* Time Window */}
-        <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-          <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1, fontFamily:"'IBM Plex Mono',monospace" }}>Time Window</span>
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Time Window</label>
           <div style={{ display:"flex", gap:2, background:"#0f172a", borderRadius:7, padding:2 }}>
             {TIME_WINDOWS.map(t => (
               <button key={t.id} onClick={() => setTimeWindow(t.id)} style={{
@@ -527,42 +539,91 @@ export default function KalibriDashboard() {
             ))}
           </div>
         </div>
-        <div style={{ width:1, height:22, background:"#1e293b" }}/>
 
-        {/* Geo Level */}
-        <div style={{ display:"flex", gap:4 }}>
-          <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market");    setMktFilter("All"); }} color="#f97316">Markets</Btn>
-          <Btn active={geoLevel==="submarket"} onClick={() => setGeoLevel("submarket")} color="#f97316">Submarkets</Btn>
+        {/* Geography */}
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Geography</label>
+          <div style={{ display:"flex", gap:2 }}>
+            <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market"); setMktFilter("All"); }} color="#f97316">Markets</Btn>
+            <Btn active={geoLevel==="submarket"} onClick={() => setGeoLevel("submarket")} color="#f97316">Submarkets</Btn>
+          </div>
         </div>
-        {geoLevel === "submarket" && (
-          <select value={mktFilter} onChange={e => setMktFilter(e.target.value)} style={sel}>
-            <option value="All">All Markets</option>
-            {markets.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-        )}
-        <div style={{ width:1, height:22, background:"#1e293b" }}/>
 
-        {/* Period selectors */}
-        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <span style={{ fontSize:11, color:"#475569" }}>Period:</span>
-          <select value={period1} onChange={e => setPeriod1(e.target.value)} style={sel}>
+        {/* Market filter */}
+        {geoLevel === "submarket" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={label9}>Market</label>
+            <select value={mktFilter} onChange={e => setMktFilter(e.target.value)} style={{ ...sel, minWidth:150 }}>
+              <option value="All">All Markets</option>
+              {markets.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* Period */}
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Period</label>
+          <select value={period1} onChange={e => setPeriod1(e.target.value)} style={{ ...sel, minWidth:120, ...(isForecast(period1) ? { border:"1px solid #f59e0b55", color:"#fbbf24" } : {}) }}>
             {[...filteredPeriods].reverse().map(p => (
-              <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ▲" : ""}</option>
+              <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>
             ))}
           </select>
         </div>
-      </div>
 
-      {/* ── Tabs ── */}
-      <div style={{ borderBottom:"1px solid #1e293b", padding:"0 28px", display:"flex", gap:0 }}>
-        {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"]].map(([id,label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding:"10px 20px", border:"none", background:"none", cursor:"pointer",
-            fontSize:12, fontWeight:600,
-            color:       tab===id ? "#f1f5f9" : "#475569",
-            borderBottom:tab===id ? "2px solid #3b82f6" : "2px solid transparent",
-          }}>{label}</button>
-        ))}
+        {/* Include Forecast */}
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+          <label style={label9}>Forecast</label>
+          <div style={{ display:"flex", gap:2 }}>
+            <Btn active={showForecast}  onClick={() => setShowForecast(true)}  color="#f59e0b">Show</Btn>
+            <Btn active={!showForecast} onClick={() => setShowForecast(false)}>Hide</Btn>
+          </div>
+        </div>
+
+        {/* Sort By (overview) */}
+        {tab === "overview" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={label9}>Sort By</label>
+            <div style={{ display:"flex", gap:4 }}>
+              <select value={sortKey} onChange={e => setSortKey(e.target.value)} style={{ ...sel, minWidth:130 }}>
+                {METRICS.map(m => (
+                  <optgroup key={m.key} label={m.label}>
+                    <option value={m.key}>{m.label}</option>
+                    {m.yoyKey && <option value={m.yoyKey}>{m.label} YoY</option>}
+                  </optgroup>
+                ))}
+              </select>
+              <button onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")}
+                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", padding:"6px 10px", fontSize:13, minWidth:34 }}>
+                {sortDir === "desc" ? "↓" : "↑"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Sort By (cagr) */}
+        {tab === "cagr" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={label9}>Sort By</label>
+            <div style={{ display:"flex", gap:4 }}>
+              <select value={cagrSortKey} onChange={e => setCagrSortKey(e.target.value)} style={{ ...sel, minWidth:130 }}>
+                {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+              <button onClick={() => setCagrSortDir(d => d === "desc" ? "asc" : "desc")}
+                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", padding:"6px 10px", fontSize:13, minWidth:34 }}>
+                {cagrSortDir === "desc" ? "↓" : "↑"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ flex:1 }}/>
+
+        {/* Tabs */}
+        <div style={{ display:"flex", gap:2 }}>
+          {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"]].map(([id, lbl]) => (
+            <Btn key={id} active={tab===id} onClick={() => setTab(id)}>{lbl}</Btn>
+          ))}
+        </div>
       </div>
 
       {/* ── Content ── */}
@@ -571,72 +632,87 @@ export default function KalibriDashboard() {
         {/* ════ OVERVIEW ════ */}
         {tab === "overview" && (
           <div>
-            {/* Sort controls */}
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14, flexWrap:"wrap" }}>
-              <span style={{ fontSize:11, color:"#475569" }}>Sort by:</span>
-              <select value={sortKey} onChange={e => setSortKey(e.target.value)} style={sel}>
-                {METRICS.map(m => (
-                  <React.Fragment key={m.key}>
-                    <option value={m.key}>{m.label}</option>
-                    {m.yoyKey && <option value={m.yoyKey}>{m.label} YoY</option>}
-                  </React.Fragment>
-                ))}
-              </select>
-              <Btn active={sortDir==="desc"} onClick={() => setSortDir("desc")}>↓ Desc</Btn>
-              <Btn active={sortDir==="asc"}  onClick={() => setSortDir("asc")}>↑ Asc</Btn>
-              <span style={{ fontSize:11, color:"#334155", marginLeft:4 }}>
-                {overviewRows.length} {geoLevel === "market" ? "markets" : "submarkets"}
-                {" · "}
-                <span style={{ color:"#8b5cf6" }}>{tw.label}</span>
-                {timeWindow !== "mo" && <span style={{ color:"#475569", fontSize:9, marginLeft:4 }}>(days-weighted)</span>}
-                {isForecast(period1) && <span style={{ color:"#f59e0b", marginLeft:6, fontSize:10 }}>▲ FORECAST PERIOD</span>}
-              </span>
+            {/* Status bar */}
+            <div style={{ fontSize:10, color:"#334155", marginBottom:10, fontFamily:"'IBM Plex Mono',monospace", display:"flex", gap:6, alignItems:"center" }}>
+              <span style={{ color:"#60a5fa", fontWeight:600 }}>{periodLabel(period1)}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span style={{ color:"#8b5cf6" }}>{tw.label}</span>
+              {timeWindow !== "mo" && <span style={{ color:"#475569", fontSize:9 }}>(days-weighted)</span>}
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span>{overviewRows.length} {geoLevel === "market" ? "markets" : "submarkets"}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span>{revType}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span>{tier.replace(" Tier","")}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span style={{ color:"#334155" }}>sorted by {METRICS.find(m => m.key===sortKey || m.yoyKey===sortKey)?.label}{sortKey.includes("_yoy") ? " YoY" : ""} {sortDir === "desc" ? "↓" : "↑"}</span>
+              {isForecast(period1) && <span style={{ color:"#f59e0b", marginLeft:4, fontSize:10 }}>◆ FORECAST PERIOD</span>}
             </div>
 
             {/* Table */}
             <div style={{ overflowX:"auto" }}>
-              <table style={{ borderCollapse:"collapse", width:"100%", fontSize:12 }}>
+              <table style={{ borderCollapse:"collapse", width:"100%", fontSize:12, tableLayout:"auto" }}>
                 <thead>
-                  <tr>
-                    <th style={{ ...thStyle("left"), position:"sticky", left:0, background:"#0f172a" }}>
+                  {/* Group banner row */}
+                  <tr style={{ background:"#070f1e" }}>
+                    <th colSpan={geoColSpan} style={{ background:"#070f1e", padding:"4px 0" }}/>
+                    <th colSpan={perfColSpan} style={{
+                      background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981",
+                      textTransform:"uppercase", letterSpacing:1, textAlign:"center",
+                      borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526",
+                    }}>
+                      <div>Performance</div>
+                      <div style={{ marginTop:2, fontWeight:400, fontSize:8, fontFamily:"'IBM Plex Mono',monospace", textTransform:"none", letterSpacing:0 }}>
+                        <span style={{ color:"#3b82f6" }}>{periodLabel(period1)}</span>
+                        <span style={{ color:"#334155", margin:"0 4px" }}>vs</span>
+                        <span style={{ color:"#64748b" }}>prior year</span>
+                      </div>
+                    </th>
+                  </tr>
+                  {/* Column labels row */}
+                  <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
+                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:150, position:"sticky", left:0, background:"#0a1628", zIndex:2 }}>
                       {geoLevel === "submarket" ? "Submarket" : "Market"}
                     </th>
-                    {geoLevel === "submarket" && <th style={thStyle("left")}>Market</th>}
-                    {METRICS.map(m => (
-                      <React.Fragment key={m.key}>
-                        <th style={thStyle()}>{m.label}</th>
-                        {m.yoyKey && <th style={thStyle()}>YoY</th>}
-                      </React.Fragment>
+                    {geoLevel === "submarket" && (
+                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:80 }}>Market</th>
+                    )}
+                    {METRICS.map(m => m.yoyKey ? [
+                      <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:70 }}>{m.label}</th>,
+                      <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>YoY</th>,
+                    ] : (
+                      <th key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:60 }}>{m.label}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {overviewRows.length === 0 && (
-                    <tr>
-                      <td colSpan={20} style={{ textAlign:"center", padding:48, color:"#334155" }}>
-                        No data for selected filters
-                      </td>
-                    </tr>
+                    <tr><td colSpan={20} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
                   )}
                   {overviewRows.map((row, i) => {
-                    const bg = i % 2 === 0 ? "#0f172a" : "#0c1420";
+                    const bg = i % 2 === 0 ? "#111827" : "#0f172a";
                     return (
-                      <tr key={row.geo}>
-                        <td style={{ ...tdStyle("left"), fontWeight:600, color:"#f1f5f9", position:"sticky", left:0, background:bg, whiteSpace:"nowrap" }}>
+                      <tr key={row.geo}
+                        style={{ borderBottom:"1px solid #0d1526", background:bg }}
+                        onMouseEnter={e => e.currentTarget.style.background="#1e293b"}
+                        onMouseLeave={e => e.currentTarget.style.background=bg}>
+                        <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:0, background:bg, zIndex:1 }}>
                           {row.label}
                         </td>
                         {geoLevel === "submarket" && (
-                          <td style={{ ...tdStyle("left"), color:"#64748b", fontSize:10, whiteSpace:"nowrap" }}>{row.mkt}</td>
+                          <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap" }}>{row.mkt}</td>
                         )}
-                        {METRICS.map(m => (
-                          <React.Fragment key={m.key}>
-                            <td style={{ ...tdStyle(), color:"#e2e8f0" }}>{m.valFmt(row.m[m.key])}</td>
-                            {m.yoyKey && (
-                              <td style={{ ...tdStyle(), color: chgColor(row.m[m.yoyKey], m.isOcc) }}>
-                                {m.isOcc ? fmt.pp(row.m[m.yoyKey]) : fmt.pct(row.m[m.yoyKey])}
-                              </td>
-                            )}
-                          </React.Fragment>
+                        {METRICS.map(m => m.yoyKey ? [
+                          <td key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#cbd5e1", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                            {m.valFmt(row.m[m.key])}
+                          </td>,
+                          <td key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:chgColor(row.m[m.yoyKey], m.isOcc), fontWeight:600, whiteSpace:"nowrap" }}>
+                            {m.isOcc ? fmt.pp(row.m[m.yoyKey]) : fmt.pct(row.m[m.yoyKey])}
+                          </td>,
+                        ] : (
+                          <td key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#94a3b8", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                            {m.valFmt(row.m[m.key])}
+                          </td>
                         ))}
                       </tr>
                     );
@@ -650,50 +726,54 @@ export default function KalibriDashboard() {
         {/* ════ TREND ════ */}
         {tab === "trend" && (
           <div>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-              <span style={{ fontSize:11, color:"#475569" }}>Metric:</span>
-              <div style={{ display:"flex", gap:4 }}>
-                {TREND_METRICS.map(m => (
-                  <Btn key={m.key} active={trendMetric===m.key} onClick={() => setTrendMetric(m.key)}>{m.label}</Btn>
-                ))}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:14, marginBottom:16, alignItems:"flex-end" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Metric</label>
+                <select value={trendMetric} onChange={e => setTrendMetric(e.target.value)} style={sel}>
+                  {TREND_METRICS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                </select>
               </div>
-              <span style={{ fontSize:10, color:"#334155" }}>Top 6 by {periodLabel(period1)}</span>
+              <div style={{ fontSize:11, color:"#475569", alignSelf:"flex-end", paddingBottom:6 }}>
+                Top 6 · <span style={{ color:"#94a3b8" }}>{revType}</span> · <span style={{ color:"#64748b" }}>{tw.label}</span>
+              </div>
             </div>
 
-            {/* Legend */}
-            <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:16 }}>
+            {/* Legend pills */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:4, alignItems:"center" }}>
               {trendData.series.map((s, i) => (
-                <div key={s} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:"#94a3b8" }}>
-                  <div style={{ width:12, height:3, background:COLORS[i % COLORS.length], borderRadius:2 }}/>
-                  {s}
+                <div key={s} style={{ display:"flex", alignItems:"center", gap:5, background:"#1e293b", borderRadius:4, padding:"3px 10px" }}>
+                  <div style={{ width:8, height:8, borderRadius:2, background:COLORS[i % COLORS.length] }}/>
+                  <span style={{ fontSize:10, color:"#cbd5e1" }}>{s}</span>
                 </div>
               ))}
+              {showForecast && (
+                <div style={{ display:"flex", alignItems:"center", gap:5, background:"#f59e0b11", border:"1px solid #f59e0b33", borderRadius:4, padding:"3px 10px", marginLeft:8 }}>
+                  <div style={{ width:8, height:8, borderRadius:2, background:"#f59e0b44", border:"1px dashed #f59e0b" }}/>
+                  <span style={{ fontSize:10, color:"#f59e0b" }}>Forecast</span>
+                </div>
+              )}
             </div>
 
             <ResponsiveContainer width="100%" height={420}>
-              <LineChart data={trendData.chartData} margin={{ top:10, right:20, bottom:50, left:60 }}>
+              <LineChart data={trendData.chartData} margin={{ top:10, right:30, bottom:80, left:20 }}>
+                {showForecast && forecastStartLabel && (
+                  <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
+                )}
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-                <XAxis
-                  dataKey="period"
-                  tick={{ fill:"#475569", fontSize:10 }}
-                  angle={-45}
-                  textAnchor="end"
-                  interval={3}
-                />
+                <XAxis dataKey="period" tick={{ fill:"#475569", fontSize:9 }} angle={-50} textAnchor="end" interval={3} height={70}/>
                 <YAxis
-                  tick={{ fill:"#475569", fontSize:11 }}
+                  tick={{ fill:"#475569", fontSize:10 }}
                   tickFormatter={TREND_METRICS.find(m => m.key === trendMetric)?.tickFmt}
+                  domain={["auto","auto"]}
                   width={60}
                 />
                 <Tooltip content={<CustomTooltip lastActual={lastActual}/>}/>
-                {!showForecast && (
-                  <ReferenceLine
-                    x={periodLabel(lastActual)}
-                    stroke="#f59e0b55"
-                    strokeDasharray="4 4"
-                    label={{ value:"Actual →", fill:"#f59e0b88", fontSize:9, position:"insideTopRight" }}
-                  />
+                {showForecast && forecastStartLabel && (
+                  <ReferenceLine x={forecastStartLabel} stroke="#f59e0b" strokeDasharray="6 3" strokeWidth={1.5}
+                    label={{ value:"Forecast →", fill:"#f59e0b", fontSize:9, position:"top" }}/>
                 )}
+                <ReferenceLine x="Jan - 2020" stroke="#ef444466" strokeDasharray="4 4"
+                  label={{ value:"COVID", fill:"#ef4444", fontSize:9, position:"top" }}/>
                 {trendData.series.map((s, i) => (
                   <Line key={s} type="monotone" dataKey={s} stroke={COLORS[i % COLORS.length]}
                     strokeWidth={2} dot={false} connectNulls activeDot={{ r:4 }}/>
@@ -706,41 +786,60 @@ export default function KalibriDashboard() {
         {/* ════ CAGR ════ */}
         {tab === "cagr" && (
           <div>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18, flexWrap:"wrap" }}>
-              <span style={{ fontSize:11, color:"#475569" }}>From:</span>
-              <select value={cagrStart} onChange={e => setCagrStart(e.target.value)} style={sel}>
-                {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}</option>)}
-              </select>
-              <span style={{ fontSize:11, color:"#475569" }}>To:</span>
-              <select value={cagrEnd} onChange={e => setCagrEnd(e.target.value)} style={sel}>
-                {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}</option>)}
-              </select>
-              <div style={{ width:1, height:22, background:"#1e293b" }}/>
-              <span style={{ fontSize:11, color:"#475569" }}>Sort:</span>
-              <select value={cagrSortKey} onChange={e => setCagrSortKey(e.target.value)} style={sel}>
-                {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-              </select>
-              <Btn active={cagrSortDir==="desc"} onClick={() => setCagrSortDir("desc")}>↓ Desc</Btn>
-              <Btn active={cagrSortDir==="asc"}  onClick={() => setCagrSortDir("asc")}>↑ Asc</Btn>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:14, marginBottom:16, alignItems:"flex-end" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Start Period</label>
+                <select value={cagrStart} onChange={e => setCagrStart(e.target.value)} style={{ ...sel, minWidth:120 }}>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
+                </select>
+              </div>
+              <div style={{ alignSelf:"flex-end", paddingBottom:8, color:"#334155", fontSize:14 }}>→</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>End Period</label>
+                <select value={cagrEnd} onChange={e => setCagrEnd(e.target.value)} style={{ ...sel, minWidth:120 }}>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
+                </select>
+              </div>
+              <div style={{ fontSize:11, color:"#64748b", alignSelf:"flex-end", paddingBottom:6 }}>
+                {(() => {
+                  const p1p = cagrStart.split("-"), p2p = cagrEnd.split("-");
+                  const y = (parseInt(p2p[0]) - parseInt(p1p[0])) + (parseInt(p2p[1]) - parseInt(p1p[1])) / 12;
+                  return y > 0 ? y.toFixed(1) + "-yr CAGR" : "Select valid range";
+                })()}
+                {" · "}<span style={{ color:"#94a3b8" }}>{revType}</span>
+              </div>
+              <div style={{ flex:1 }}/>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Chart Metric</label>
+                <select value={cagrChartMetric} onChange={e => setCagrChartMetric(e.target.value)} style={{ ...sel, minWidth:140 }}>
+                  {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+              </div>
             </div>
 
-            {/* Bar chart of RevPAR CAGR */}
+            {/* Bar chart */}
             {cagrRows.length > 0 && (
-              <div style={{ marginBottom:28 }}>
-                <div style={{ fontSize:11, color:"#475569", marginBottom:8 }}>RevPAR CAGR — {periodLabel(cagrStart)} → {periodLabel(cagrEnd)}</div>
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
+                  {CAGR_SORT_OPTIONS.find(o => o.key === cagrChartMetric)?.label} · Top {Math.min(cagrRows.length, 20)} geographies · sorted by {CAGR_SORT_OPTIONS.find(o => o.key === cagrSortKey)?.label}
+                </div>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={cagrRows} margin={{ top:0, right:20, bottom:60, left:20 }}>
+                  <BarChart data={cagrRows.slice(0, 20)} margin={{ top:5, right:20, bottom:90, left:20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-                    <XAxis dataKey="label" tick={{ fill:"#475569", fontSize:9 }} angle={-40} textAnchor="end" interval={0}/>
-                    <YAxis tick={{ fill:"#475569", fontSize:11 }} tickFormatter={v => (v*100).toFixed(1)+"%"} width={50}/>
+                    <XAxis dataKey="label" tick={{ fill:"#475569", fontSize:9 }} angle={-45} textAnchor="end" height={80} interval={0}/>
+                    <YAxis
+                      tickFormatter={v => cagrChartMetric === "occ_delta" ? (v*100).toFixed(1)+"pp" : (v*100).toFixed(1)+"%"}
+                      tick={{ fill:"#475569", fontSize:10 }}
+                    />
                     <Tooltip
-                      formatter={v => fmt.pct(v)}
-                      contentStyle={{ background:"#1e293b", border:"1px solid #334155", borderRadius:8, fontSize:11 }}
+                      contentStyle={{ background:"#1e293b", border:"1px solid #334155", borderRadius:6, fontSize:11 }}
+                      formatter={(v, n) => [cagrChartMetric === "occ_delta" ? fmt.pp(v) : fmt.pct(v), n]}
                       labelStyle={{ color:"#94a3b8" }}
                     />
-                    <Bar dataKey="revpar_cagr" name="RevPAR CAGR" radius={[3,3,0,0]}>
-                      {cagrRows.map((row, i) => (
-                        <Cell key={i} fill={row.revpar_cagr >= 0 ? "#10b981" : "#ef4444"}/>
+                    <ReferenceLine y={0} stroke="#334155"/>
+                    <Bar dataKey={cagrChartMetric} name={CAGR_SORT_OPTIONS.find(o => o.key === cagrChartMetric)?.label} radius={[3,3,0,0]}>
+                      {cagrRows.slice(0, 20).map((row, i) => (
+                        <Cell key={i} fill={(row[cagrChartMetric] || 0) >= 0 ? "#3b82f6" : "#ef4444"}/>
                       ))}
                     </Bar>
                   </BarChart>
@@ -748,39 +847,72 @@ export default function KalibriDashboard() {
               </div>
             )}
 
-            {/* CAGR table */}
-            <table style={{ borderCollapse:"collapse", width:"100%", fontSize:12 }}>
-              <thead>
-                <tr>
-                  <th style={thStyle("left")}>Geography</th>
-                  {geoLevel === "submarket" && <th style={thStyle("left")}>Market</th>}
-                  <th style={thStyle()}>RevPAR — Start</th>
-                  <th style={thStyle()}>RevPAR — End</th>
-                  <th style={thStyle()}>RevPAR CAGR</th>
-                  <th style={thStyle()}>ADR CAGR</th>
-                  <th style={thStyle()}>Occ Δ (pp)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cagrRows.length === 0 && (
-                  <tr><td colSpan={8} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
-                )}
-                {cagrRows.map((row, i) => {
-                  const bg = i % 2 === 0 ? "#0f172a" : "#0c1420";
-                  return (
-                    <tr key={row.geo} style={{ background:bg }}>
-                      <td style={{ ...tdStyle("left"), fontWeight:600, color:"#f1f5f9" }}>{row.label}</td>
-                      {geoLevel === "submarket" && <td style={{ ...tdStyle("left"), color:"#64748b", fontSize:10 }}>{row.mkt}</td>}
-                      <td style={{ ...tdStyle(), color:"#94a3b8" }}>{fmt.dollar(row.ms_revpar)}</td>
-                      <td style={{ ...tdStyle(), color:"#94a3b8" }}>{fmt.dollar(row.me_revpar)}</td>
-                      <td style={{ ...tdStyle(), color: chgColor(row.revpar_cagr) }}>{fmt.pct(row.revpar_cagr)}</td>
-                      <td style={{ ...tdStyle(), color: chgColor(row.adr_cagr)   }}>{fmt.pct(row.adr_cagr)}</td>
-                      <td style={{ ...tdStyle(), color: chgColor(row.occ_delta, true) }}>{fmt.pp(row.occ_delta)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {/* CAGR table — grouped columns: Occupancy / ADR / RevPAR */}
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:"#070f1e" }}>
+                    <th colSpan={geoColSpan} style={{ background:"#070f1e", padding:"4px 0" }}/>
+                    {[["Occupancy",3],["ADR",3],["RevPAR",3]].map(([lbl, span]) => (
+                      <th key={lbl} colSpan={span} style={{
+                        background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981",
+                        textTransform:"uppercase", letterSpacing:1, textAlign:"center",
+                        borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526",
+                      }}>{lbl}</th>
+                    ))}
+                  </tr>
+                  <tr style={{ borderBottom:"1px solid #1e293b", background:"#0a1628" }}>
+                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap" }}>Geography</th>
+                    {geoLevel === "submarket" && (
+                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap" }}>Market</th>
+                    )}
+                    {/* Occ sub-headers */}
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", fontFamily:"'IBM Plex Mono',monospace" }}>{periodLabel(cagrStart)}</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", fontFamily:"'IBM Plex Mono',monospace" }}>{periodLabel(cagrEnd)}</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#10b981", fontWeight:600, whiteSpace:"nowrap" }}>Δ (pp)</th>
+                    {/* ADR sub-headers */}
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", fontFamily:"'IBM Plex Mono',monospace" }}>{periodLabel(cagrStart)}</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", fontFamily:"'IBM Plex Mono',monospace" }}>{periodLabel(cagrEnd)}</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#10b981", fontWeight:600, whiteSpace:"nowrap" }}>CAGR</th>
+                    {/* RevPAR sub-headers */}
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", fontFamily:"'IBM Plex Mono',monospace" }}>{periodLabel(cagrStart)}</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", fontFamily:"'IBM Plex Mono',monospace" }}>{periodLabel(cagrEnd)}</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#10b981", fontWeight:600, whiteSpace:"nowrap" }}>CAGR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cagrRows.length === 0 && (
+                    <tr><td colSpan={12} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
+                  )}
+                  {cagrRows.map((row, i) => {
+                    const bg = i % 2 === 0 ? "#111827" : "#0f172a";
+                    return (
+                      <tr key={row.geo}
+                        style={{ borderBottom:"1px solid #0d1526", background:bg }}
+                        onMouseEnter={e => e.currentTarget.style.background="#1e293b"}
+                        onMouseLeave={e => e.currentTarget.style.background=bg}>
+                        <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap" }}>{row.label}</td>
+                        {geoLevel === "submarket" && (
+                          <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap" }}>{row.mkt}</td>
+                        )}
+                        {/* Occ */}
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#64748b", borderLeft:"1px solid #0d1526" }}>{fmt.occ(row.ms_occ)}</td>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#94a3b8" }}>{fmt.occ(row.me_occ)}</td>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:chgColor(row.occ_delta, true), fontWeight:600 }}>{fmt.pp(row.occ_delta)}</td>
+                        {/* ADR */}
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#64748b", borderLeft:"1px solid #0d1526" }}>{fmt.dollar(row.ms_adr)}</td>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#94a3b8" }}>{fmt.dollar(row.me_adr)}</td>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:chgColor(row.adr_cagr), fontWeight:600 }}>{fmt.pct(row.adr_cagr)}</td>
+                        {/* RevPAR */}
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#64748b", borderLeft:"1px solid #0d1526" }}>{fmt.dollar(row.ms_revpar)}</td>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#60a5fa" }}>{fmt.dollar(row.me_revpar)}</td>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:chgColor(row.revpar_cagr), fontWeight:700, fontSize:13 }}>{fmt.pct(row.revpar_cagr)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
