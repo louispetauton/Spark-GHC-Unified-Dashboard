@@ -698,6 +698,9 @@ export default function KalibriDashboard() {
 
   const perfColSpan = METRICS.reduce((a, m) => a + (m.yoyKey ? 2 : 1), 0);
   const geoColSpan  = geoLevel === "submarket" ? 2 : 1;
+  const MKT_W  = 160; // fixed width for sticky market/submarket column
+  const SUB_W  = 100; // fixed width for market-label column in submarket view
+  const ROOM_LEFT = geoLevel === "submarket" ? MKT_W + 2 + SUB_W + 2 : MKT_W + 2;
   const getSupply   = geo => {
     if (tiers.length === 1) return SUPPLY[geo]?.[tiers[0]] || null;
     const items = tiers.map(t => SUPPLY[geo]?.[t]).filter(Boolean);
@@ -955,13 +958,13 @@ export default function KalibriDashboard() {
                   </tr>
                   {/* Column labels row */}
                   <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
-                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:150, position:"sticky", left:0, background:"#0a1628", zIndex:2, borderRight:"2px solid #1e293b" }}>
+                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W, position:"sticky", left:0, background:"#0a1628", zIndex:3, borderRight:"1px solid #1e293b" }}>
                       {geoLevel === "submarket" ? "Submarket" : "Market"}
                     </th>
                     {geoLevel === "submarket" && (
-                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:80 }}>Market</th>
+                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W, position:"sticky", left:MKT_W+2, background:"#0a1628", zIndex:3, borderRight:"1px solid #1e293b" }}>Market</th>
                     )}
-                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:70 }}>Rooms</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", minWidth:80, position:"sticky", left:ROOM_LEFT, background:"#0a1628", zIndex:3, borderRight:"2px solid #1e293b" }}>Rooms</th>
                     {METRICS.map(m => m.yoyKey ? [
                       <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>{m.label}</th>,
                       <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>{ovStart ? "% Chg" : "YoY"}</th>,
@@ -981,13 +984,13 @@ export default function KalibriDashboard() {
                         style={{ borderBottom:"1px solid #0d1526", background:bg }}
                         onMouseEnter={e => e.currentTarget.style.background="#1e293b"}
                         onMouseLeave={e => e.currentTarget.style.background=bg}>
-                        <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:0, background:bg, zIndex:1, borderRight:"2px solid #1e293b" }}>
+                        <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:0, background:bg, zIndex:2, borderRight:"1px solid #1e293b" }}>
                           {row.label}
                         </td>
                         {geoLevel === "submarket" && (
-                          <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap" }}>{row.mkt}</td>
+                          <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:MKT_W+2, background:bg, zIndex:2, borderRight:"1px solid #1e293b" }}>{row.mkt}</td>
                         )}
-                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", whiteSpace:"nowrap", minWidth:80, position:"sticky", left:ROOM_LEFT, background:bg, zIndex:2, borderRight:"2px solid #1e293b" }}>
                           {(() => { const s = getSupply(row.geo); return s ? s.rooms.toLocaleString() : "—"; })()}
                         </td>
                         {METRICS.map(m => m.yoyKey ? [
