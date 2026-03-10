@@ -653,9 +653,9 @@ export default function KalibriDashboard() {
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sel = {
     background:"#1e293b", border:"1px solid #334155", color:"#f1f5f9",
-    borderRadius:6, padding:"6px 10px", fontSize:12, outline:"none", cursor:"pointer",
+    borderRadius:6, padding:"0 10px", height:28, fontSize:11, outline:"none", cursor:"pointer",
   };
-  const btnBase = { padding:"5px 13px", borderRadius:5, border:"none", cursor:"pointer", fontSize:11, fontWeight:600 };
+  const btnBase = { padding:"0 12px", height:28, borderRadius:5, border:"none", cursor:"pointer", fontSize:11, fontWeight:600, display:"inline-flex", alignItems:"center", justifyContent:"center", whiteSpace:"nowrap" };
   const Btn = ({ active, onClick, children, color="#3b82f6", style={} }) => (
     <button onClick={onClick} style={{
       ...btnBase,
