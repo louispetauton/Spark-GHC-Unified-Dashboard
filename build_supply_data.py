@@ -73,6 +73,13 @@ def main():
 
         tier = TIER_MAP.get(chain_class, "Lower Tier")  # Independent defaults to Lower
 
+        lat = r[col["Latitude"]]  or ""
+        lng = r[col["Longitude"]] or ""
+        try: lat = float(lat)
+        except (ValueError, TypeError): lat = ""
+        try: lng = float(lng)
+        except (ValueError, TypeError): lng = ""
+
         out_rows.append({
             "Market":      market,
             "Submarket":   submarket,
@@ -83,9 +90,11 @@ def main():
             "Company":     company,
             "Property":    prop_name,
             "Rooms":       rooms,
+            "Lat":         lat,
+            "Lng":         lng,
         })
 
-    fieldnames = ["Market","Submarket","Tier","Chain Class","Chain Scale","Brand","Company","Property","Rooms"]
+    fieldnames = ["Market","Submarket","Tier","Chain Class","Chain Scale","Brand","Company","Property","Rooms","Lat","Lng"]
     with open(OUTPUT, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()

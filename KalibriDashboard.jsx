@@ -600,7 +600,10 @@ export default function KalibriDashboard() {
   const [hoveredRow, setHoveredRow] = useState(null);
 
   // map tab
-  const [mapReady, setMapReady] = useState(false);
+  const [mapReady,     setMapReady]     = useState(false);
+  const [mapMode,      setMapMode]      = useState("bubbles");   // "bubbles" | "pins"
+  const [mapBrands,    setMapBrands]    = useState([]);          // selected brand names (empty = all)
+  const [mapExtStay,   setMapExtStay]   = useState(false);
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
@@ -675,93 +678,124 @@ export default function KalibriDashboard() {
         subdomains: "abcd", maxZoom: 19,
       }).addTo(map);
 
-      // Group supply data by geo
-      const geoMap = {};
-      for (const r of supplyData) {
-        if (supplyMkt !== "All" && r.Market !== supplyMkt && supplyGeoLevel === "submarket") continue;
-        const key = supplyGeoLevel === "market"
-          ? r.Market
-          : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
-        if (!geoMap[key]) geoMap[key] = {
-          name: supplyGeoLevel === "market" ? r.Market.replace(", OH","") : (r.Submarket || r.Market.replace(", OH","")),
-          market: r.Market, totalRooms: 0, totalProps: 0, filteredRooms: 0, filteredProps: 0, tiers: {},
-        };
-        const tierMatch = tiers[0] === "All Tier" || tiers.includes(r.Tier);
-        geoMap[key].totalRooms += r.Rooms;
-        geoMap[key].totalProps += 1;
-        if (!geoMap[key].tiers[r.Tier]) geoMap[key].tiers[r.Tier] = { rooms: 0, props: 0 };
-        geoMap[key].tiers[r.Tier].rooms += r.Rooms;
-        geoMap[key].tiers[r.Tier].props += 1;
-        if (tierMatch) { geoMap[key].filteredRooms += r.Rooms; geoMap[key].filteredProps += 1; }
-      }
-
-      const geos = Object.entries(geoMap).filter(([k]) => GEO_COORDS[k] && geoMap[k].filteredRooms > 0);
-      const maxRooms = Math.max(...geos.map(([, g]) => g.filteredRooms), 1);
-      const tierColor = tiers[0] === "All Tier" ? "#3b82f6"
-        : tiers.length === 1 && tiers[0] === "Lower Tier" ? "#ef4444"
-        : tiers.length === 1 && tiers[0] === "Mid Tier"   ? "#f59e0b"
-        : tiers.length === 1 && tiers[0] === "Upper Tier" ? "#10b981"
-        : "#8b5cf6";
-
-      for (const [key, geo] of geos) {
-        const [lat, lng] = GEO_COORDS[key];
-        const radius = Math.max(8, Math.sqrt(geo.filteredRooms / maxRooms) * 42);
-        const lower  = geo.tiers["Lower Tier"] || { rooms:0, props:0 };
-        const mid    = geo.tiers["Mid Tier"]   || { rooms:0, props:0 };
-        const upper  = geo.tiers["Upper Tier"] || { rooms:0, props:0 };
-
-        const circle = L.circleMarker([lat, lng], {
-          radius, fillColor: tierColor, color: "#ffffff", weight: 1.5, opacity: 0.9, fillOpacity: 0.55,
-        }).addTo(map);
-
-        circle.bindPopup(`
-          <div style="font-family:sans-serif;min-width:220px;padding:4px">
-            <div style="font-size:14px;font-weight:700;margin-bottom:4px">${geo.name}</div>
-            ${supplyGeoLevel === "submarket" ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${geo.market}</div>` : ""}
-            <div style="font-size:12px;margin-bottom:8px"><b>${geo.totalRooms.toLocaleString()}</b> total rooms · <b>${geo.totalProps}</b> properties</div>
-            <table style="font-size:11px;border-collapse:collapse;width:100%">
-              <tr style="color:#64748b;border-bottom:1px solid #e2e8f0">
-                <th style="text-align:left;padding:3px 8px 3px 0">Tier</th>
-                <th style="text-align:right;padding:3px 4px">Rooms</th>
-                <th style="text-align:right;padding:3px 0 3px 8px">Props</th>
-              </tr>
-              <tr><td style="padding:3px 8px 3px 0;color:#ef4444;font-weight:500">Lower</td><td style="text-align:right;padding:3px 4px">${lower.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${lower.props}</td></tr>
-              <tr><td style="padding:3px 8px 3px 0;color:#f59e0b;font-weight:500">Mid</td><td style="text-align:right;padding:3px 4px">${mid.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${mid.props}</td></tr>
-              <tr><td style="padding:3px 8px 3px 0;color:#10b981;font-weight:500">Upper</td><td style="text-align:right;padding:3px 4px">${upper.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${upper.props}</td></tr>
-            </table>
-          </div>`);
-
-        if (supplyGeoLevel === "market") {
-          circle.bindTooltip(geo.name, {
-            permanent: true, direction: "top", className: "map-geo-label", offset: [0, -(radius + 2)],
-          });
-        }
-      }
-
-      // Legend
-      const legend = L.control({ position: "bottomright" });
-      legend.onAdd = () => {
-        const div = L.DomUtil.create("div");
-        const sizes = [[maxRooms, "Max"], [Math.round(maxRooms * 0.5), "50%"], [Math.round(maxRooms * 0.25), "25%"]];
-        div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8">
-          <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">Rooms (filtered tier)</div>
-          ${sizes.map(([r, lbl]) => {
-            const px = Math.max(8, Math.sqrt(r / maxRooms) * 42);
-            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <svg width="${px*2+2}" height="${px*2+2}" style="flex-shrink:0"><circle cx="${px+1}" cy="${px+1}" r="${px}" fill="${tierColor}" fill-opacity="0.55" stroke="#fff" stroke-width="1.5"/></svg>
-              <span>${r.toLocaleString()} <span style="color:#475569">${lbl}</span></span>
-            </div>`;
-          }).join("")}
-        </div>`;
-        return div;
-      };
-      legend.addTo(map);
-
-      // Label CSS
+      // CSS
       const style = document.createElement("style");
       style.id = "kalibri-map-style";
       style.textContent = `.map-geo-label{background:transparent!important;border:none!important;box-shadow:none!important;font-size:10px!important;font-weight:700!important;color:#e2e8f0!important;text-shadow:0 1px 4px rgba(0,0,0,0.9)!important;white-space:nowrap!important}.map-geo-label::before{display:none!important}.leaflet-popup-content-wrapper{background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.3)}.leaflet-popup-tip{background:#fff}`;
       if (!document.getElementById("kalibri-map-style")) document.head.appendChild(style);
+
+      const TIER_PIN_COLOR = { "Lower Tier":"#ef4444", "Mid Tier":"#f59e0b", "Upper Tier":"#10b981" };
+
+      if (mapMode === "pins") {
+        // ── Property pins ───────────────────────────────────────────────
+        let filtered = supplyData.filter(r => r.Lat && r.Lng);
+        if (tiers[0] !== "All Tier") filtered = filtered.filter(r => tiers.includes(r.Tier));
+        if (mapExtStay)              filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
+        if (mapBrands.length > 0)    filtered = filtered.filter(r => mapBrands.includes(r.Brand));
+        if (supplyMkt !== "All")     filtered = filtered.filter(r => r.Market === supplyMkt);
+
+        filtered.forEach(r => {
+          const color = TIER_PIN_COLOR[r.Tier] || "#64748b";
+          const marker = L.circleMarker([parseFloat(r.Lat), parseFloat(r.Lng)], {
+            radius: 5, fillColor: color, color: "#000", weight: 0.5, opacity: 0.9, fillOpacity: 0.85,
+          }).addTo(map);
+          marker.bindPopup(`
+            <div style="font-family:sans-serif;min-width:200px;padding:4px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px">${r.Property}</div>
+              <div style="font-size:11px;color:#64748b;margin-bottom:6px">${r.Submarket || r.Market}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                <span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:${color}22;color:${color}">${r.Tier.replace(" Tier","")}</span>
+                ${EXTENDED_STAY_BRANDS.has(r.Brand) ? '<span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:#8b5cf622;color:#8b5cf6">Extended Stay</span>' : ""}
+              </div>
+              <table style="font-size:11px;width:100%;border-collapse:collapse">
+                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Brand</td><td style="font-weight:500">${r.Brand}</td></tr>
+                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Company</td><td>${r.Company}</td></tr>
+                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Class</td><td>${r["Chain Class"] || "—"}</td></tr>
+                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Rooms</td><td><b>${r.Rooms}</b></td></tr>
+              </table>
+            </div>`);
+        });
+
+        // Pin legend
+        const legend = L.control({ position: "bottomright" });
+        legend.onAdd = () => {
+          const div = L.DomUtil.create("div");
+          const shown = mapBrands.length > 0 ? mapBrands.length + " brand(s)" : mapExtStay ? "Extended Stay" : "All brands";
+          div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8">
+            <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">${filtered.length} properties · ${shown}</div>
+            ${Object.entries(TIER_PIN_COLOR).map(([t, c]) => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="${c}" fill-opacity="0.85" stroke="#000" stroke-width="0.5"/></svg><span style="color:${c}">${t.replace(" Tier","")}</span></div>`).join("")}
+          </div>`;
+          return div;
+        };
+        legend.addTo(map);
+
+      } else {
+        // ── Bubble view ─────────────────────────────────────────────────
+        const geoMap = {};
+        for (const r of supplyData) {
+          if (supplyMkt !== "All" && r.Market !== supplyMkt && supplyGeoLevel === "submarket") continue;
+          const key = supplyGeoLevel === "market"
+            ? r.Market
+            : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
+          if (!geoMap[key]) geoMap[key] = {
+            name: supplyGeoLevel === "market" ? r.Market.replace(", OH","") : (r.Submarket || r.Market.replace(", OH","")),
+            market: r.Market, totalRooms: 0, totalProps: 0, filteredRooms: 0, filteredProps: 0, tiers: {},
+          };
+          const tierMatch = tiers[0] === "All Tier" || tiers.includes(r.Tier);
+          geoMap[key].totalRooms += r.Rooms;
+          geoMap[key].totalProps += 1;
+          if (!geoMap[key].tiers[r.Tier]) geoMap[key].tiers[r.Tier] = { rooms: 0, props: 0 };
+          geoMap[key].tiers[r.Tier].rooms += r.Rooms;
+          geoMap[key].tiers[r.Tier].props += 1;
+          if (tierMatch) { geoMap[key].filteredRooms += r.Rooms; geoMap[key].filteredProps += 1; }
+        }
+        const geos = Object.entries(geoMap).filter(([k]) => GEO_COORDS[k] && geoMap[k].filteredRooms > 0);
+        const maxRooms = Math.max(...geos.map(([, g]) => g.filteredRooms), 1);
+        const tierColor = tiers[0] === "All Tier" ? "#3b82f6"
+          : tiers.length === 1 && tiers[0] === "Lower Tier" ? "#ef4444"
+          : tiers.length === 1 && tiers[0] === "Mid Tier"   ? "#f59e0b"
+          : tiers.length === 1 && tiers[0] === "Upper Tier" ? "#10b981"
+          : "#8b5cf6";
+
+        for (const [key, geo] of geos) {
+          const [lat, lng] = GEO_COORDS[key];
+          const radius = Math.max(8, Math.sqrt(geo.filteredRooms / maxRooms) * 42);
+          const lower  = geo.tiers["Lower Tier"] || { rooms:0, props:0 };
+          const mid    = geo.tiers["Mid Tier"]   || { rooms:0, props:0 };
+          const upper  = geo.tiers["Upper Tier"] || { rooms:0, props:0 };
+          const circle = L.circleMarker([lat, lng], {
+            radius, fillColor: tierColor, color: "#ffffff", weight: 1.5, opacity: 0.9, fillOpacity: 0.55,
+          }).addTo(map);
+          circle.bindPopup(`
+            <div style="font-family:sans-serif;min-width:220px;padding:4px">
+              <div style="font-size:14px;font-weight:700;margin-bottom:4px">${geo.name}</div>
+              ${supplyGeoLevel === "submarket" ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${geo.market}</div>` : ""}
+              <div style="font-size:12px;margin-bottom:8px"><b>${geo.totalRooms.toLocaleString()}</b> total rooms · <b>${geo.totalProps}</b> properties</div>
+              <table style="font-size:11px;border-collapse:collapse;width:100%">
+                <tr style="color:#64748b;border-bottom:1px solid #e2e8f0"><th style="text-align:left;padding:3px 8px 3px 0">Tier</th><th style="text-align:right;padding:3px 4px">Rooms</th><th style="text-align:right;padding:3px 0 3px 8px">Props</th></tr>
+                <tr><td style="padding:3px 8px 3px 0;color:#ef4444;font-weight:500">Lower</td><td style="text-align:right;padding:3px 4px">${lower.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${lower.props}</td></tr>
+                <tr><td style="padding:3px 8px 3px 0;color:#f59e0b;font-weight:500">Mid</td><td style="text-align:right;padding:3px 4px">${mid.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${mid.props}</td></tr>
+                <tr><td style="padding:3px 8px 3px 0;color:#10b981;font-weight:500">Upper</td><td style="text-align:right;padding:3px 4px">${upper.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${upper.props}</td></tr>
+              </table>
+            </div>`);
+          if (supplyGeoLevel === "market") {
+            circle.bindTooltip(geo.name, { permanent: true, direction: "top", className: "map-geo-label", offset: [0, -(radius + 2)] });
+          }
+        }
+
+        // Bubble legend
+        const legend = L.control({ position: "bottomright" });
+        legend.onAdd = () => {
+          const div = L.DomUtil.create("div");
+          const sizes = [[maxRooms, "Max"], [Math.round(maxRooms * 0.5), "50%"], [Math.round(maxRooms * 0.25), "25%"]];
+          div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8">
+            <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">Rooms</div>
+            ${sizes.map(([r, lbl]) => { const px = Math.max(8, Math.sqrt(r / maxRooms) * 42); return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><svg width="${px*2+2}" height="${px*2+2}" style="flex-shrink:0"><circle cx="${px+1}" cy="${px+1}" r="${px}" fill="${tierColor}" fill-opacity="0.55" stroke="#fff" stroke-width="1.5"/></svg><span>${r.toLocaleString()} <span style="color:#475569">${lbl}</span></span></div>`; }).join("")}
+          </div>`;
+          return div;
+        };
+        legend.addTo(map);
+      }
     }, 80);
 
     return () => {
@@ -769,7 +803,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers]);
+  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapBrands, mapExtStay]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
@@ -1747,19 +1781,49 @@ export default function KalibriDashboard() {
         )}
 
         {/* ════ MAP ════ */}
-        {tab === "map" && (
+        {tab === "map" && (() => {
+          const allBrands = [...new Set(supplyData.map(r => r.Brand))].filter(Boolean).sort();
+          const visibleBrands = mapExtStay ? allBrands.filter(b => EXTENDED_STAY_BRANDS.has(b)) : allBrands;
+          return (
           <div>
-            <div style={{ fontSize:10, color:"#334155", marginBottom:10, fontFamily:"'IBM Plex Mono',monospace", display:"flex", gap:6, alignItems:"center" }}>
-              <span style={{ color:"#60a5fa", fontWeight:600 }}>{supplyGeoLevel === "market" ? "9 markets" : "35 submarkets"}</span>
-              <span style={{ color:"#1a2540" }}>·</span>
-              <span style={{ color:"#10b981" }}>{tiers[0] === "All Tier" ? "All Classes" : tiers.map(t => t.replace(" Tier","")).join(" + ")}</span>
-              <span style={{ color:"#1a2540" }}>·</span>
-              <span>Circle size = rooms · Click a circle for breakdown</span>
-              {!mapReady && <span style={{ color:"#f59e0b", marginLeft:4 }}>Loading map…</span>}
+            {/* Map controls row */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:10, marginBottom:12, alignItems:"flex-end" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>View</label>
+                <div style={{ display:"flex", gap:2 }}>
+                  <Btn active={mapMode==="bubbles"} onClick={() => setMapMode("bubbles")} color="#3b82f6">Bubbles</Btn>
+                  <Btn active={mapMode==="pins"}    onClick={() => setMapMode("pins")}    color="#3b82f6">Property Pins</Btn>
+                </div>
+              </div>
+              {mapMode === "pins" && (
+                <>
+                  <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                    <label style={label9}>Extended Stay</label>
+                    <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Extended Stay Only</Btn>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                    <label style={label9}>Brand Filter <span style={{ color:"#334155" }}>({mapBrands.length > 0 ? mapBrands.length + " selected" : "all"})</span></label>
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:700 }}>
+                      {visibleBrands.map(b => (
+                        <Btn key={b} active={mapBrands.includes(b)}
+                          onClick={() => setMapBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
+                          color="#6366f1" style={{ fontSize:10, padding:"0 8px", height:24 }}>
+                          {b}
+                        </Btn>
+                      ))}
+                      {mapBrands.length > 0 && (
+                        <Btn active={false} onClick={() => setMapBrands([])} style={{ fontSize:10, padding:"0 8px", height:24 }}>Clear</Btn>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+              {!mapReady && <span style={{ color:"#f59e0b", fontSize:11 }}>Loading map…</span>}
             </div>
             <div id="kalibri-map" style={{ height:600, borderRadius:8, border:"1px solid #1e293b", background:"#0a1628" }} />
           </div>
-        )}
+          );
+        })()}
 
       </div>
     </div>
