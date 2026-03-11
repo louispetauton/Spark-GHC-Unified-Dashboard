@@ -1789,60 +1789,53 @@ export default function KalibriDashboard() {
             .filter(r => (mapCompanies.length === 0 || mapCompanies.includes(r.Company)) && (!mapExtStay || EXTENDED_STAY_BRANDS.has(r.Brand)))
             .reduce((s, r) => { s.add(r.Brand); return s; }, new Set());
           const visibleBrands = [...brandsForCompany].sort();
+          const chipBox = { display:"flex", gap:3, flexWrap:"wrap", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, padding:"6px 8px", maxHeight:76, overflowY:"auto", marginTop:3 };
           return (
           <div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:10, marginBottom:12, alignItems:"flex-end" }}>
-              {/* View toggle */}
+            {/* ── Controls row ── */}
+            <div style={{ display:"flex", gap:12, marginBottom:10, alignItems:"flex-start", flexWrap:"wrap" }}>
+
+              {/* View + Extended Stay */}
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={label9}>View</label>
                 <div style={{ display:"flex", gap:2 }}>
                   <Btn active={mapMode==="bubbles"} onClick={() => setMapMode("bubbles")} color="#3b82f6">Bubbles</Btn>
-                  <Btn active={mapMode==="pins"}    onClick={() => setMapMode("pins")}    color="#3b82f6">Property Pins</Btn>
+                  <Btn active={mapMode==="pins"}    onClick={() => { setMapMode("pins"); }} color="#3b82f6">Property Pins</Btn>
+                  {mapMode === "pins" && <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Ext. Stay</Btn>}
                 </div>
               </div>
 
               {mapMode === "pins" && (<>
-                {/* Extended stay */}
-                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                  <label style={label9}>Extended Stay</label>
-                  <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Extended Stay Only</Btn>
-                </div>
-
-                {/* Company chips */}
-                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                  <label style={label9}>Parent Company <span style={{ color:"#475569" }}>({mapCompanies.length > 0 ? mapCompanies.length + " selected" : "all"})</span></label>
-                  <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:900 }}>
+                {/* Company scrollable box */}
+                <div style={{ display:"flex", flexDirection:"column", flex:"0 0 320px" }}>
+                  <label style={label9}>Parent Company <span style={{ color:"#475569" }}>· {mapCompanies.length > 0 ? mapCompanies.length + " selected" : "all"}{mapCompanies.length > 0 ? <span onClick={() => { setMapCompanies([]); setMapBrands([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span> : ""}</span></label>
+                  <div style={chipBox}>
                     {companies.map(c => (
                       <Btn key={c} active={mapCompanies.includes(c)}
                         onClick={() => { setMapCompanies(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setMapBrands([]); }}
-                        color="#f97316" style={{ fontSize:10, padding:"0 8px", height:24 }}>
-                        {c}
-                      </Btn>
+                        color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22 }}>{c}</Btn>
                     ))}
-                    {mapCompanies.length > 0 && <Btn active={false} onClick={() => { setMapCompanies([]); setMapBrands([]); }} style={{ fontSize:10, padding:"0 8px", height:24 }}>Clear</Btn>}
                   </div>
                 </div>
 
-                {/* Brand chips — only shown when companies or ext stay filtered */}
+                {/* Brand scrollable box — only when filtered */}
                 {(mapCompanies.length > 0 || mapExtStay) && (
-                  <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                    <label style={label9}>Brand <span style={{ color:"#475569" }}>({mapBrands.length > 0 ? mapBrands.length + " selected" : "all " + visibleBrands.length})</span></label>
-                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:900 }}>
+                  <div style={{ display:"flex", flexDirection:"column", flex:"0 0 320px" }}>
+                    <label style={label9}>Brand <span style={{ color:"#475569" }}>· {mapBrands.length > 0 ? mapBrands.length + " selected" : "all " + visibleBrands.length}{mapBrands.length > 0 ? <span onClick={() => setMapBrands([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span> : ""}</span></label>
+                    <div style={chipBox}>
                       {visibleBrands.map(b => (
                         <Btn key={b} active={mapBrands.includes(b)}
                           onClick={() => setMapBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
-                          color="#6366f1" style={{ fontSize:10, padding:"0 8px", height:24 }}>
-                          {b}
-                        </Btn>
+                          color="#6366f1" style={{ fontSize:10, padding:"0 7px", height:22 }}>{b}</Btn>
                       ))}
-                      {mapBrands.length > 0 && <Btn active={false} onClick={() => setMapBrands([])} style={{ fontSize:10, padding:"0 8px", height:24 }}>Clear</Btn>}
                     </div>
                   </div>
                 )}
               </>)}
-              {!mapReady && <span style={{ color:"#f59e0b", fontSize:11 }}>Loading map…</span>}
+              {!mapReady && <span style={{ color:"#f59e0b", fontSize:11, alignSelf:"center" }}>Loading map…</span>}
             </div>
-            <div id="kalibri-map" style={{ height:580, borderRadius:8, border:"1px solid #1e293b", background:"#0a1628" }} />
+
+            <div id="kalibri-map" style={{ height:560, borderRadius:8, border:"1px solid #1e293b", background:"#0a1628" }} />
           </div>
           );
         })()}
