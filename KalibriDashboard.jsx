@@ -602,6 +602,7 @@ export default function KalibriDashboard() {
   // map tab
   const [mapReady,     setMapReady]     = useState(false);
   const [mapMode,      setMapMode]      = useState("bubbles");   // "bubbles" | "pins"
+  const [mapCompany,   setMapCompany]   = useState("All");
   const [mapBrands,    setMapBrands]    = useState([]);          // selected brand names (empty = all)
   const [mapExtStay,   setMapExtStay]   = useState(false);
   const mapInstanceRef = useRef(null);
@@ -691,6 +692,7 @@ export default function KalibriDashboard() {
         let filtered = supplyData.filter(r => r.Lat && r.Lng);
         if (tiers[0] !== "All Tier") filtered = filtered.filter(r => tiers.includes(r.Tier));
         if (mapExtStay)              filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
+        if (mapCompany !== "All")    filtered = filtered.filter(r => r.Company === mapCompany);
         if (mapBrands.length > 0)    filtered = filtered.filter(r => mapBrands.includes(r.Brand));
         if (supplyMkt !== "All")     filtered = filtered.filter(r => r.Market === supplyMkt);
 
@@ -803,7 +805,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapBrands, mapExtStay]);
+  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapCompany, mapBrands, mapExtStay]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
@@ -1782,12 +1784,15 @@ export default function KalibriDashboard() {
 
         {/* ════ MAP ════ */}
         {tab === "map" && (() => {
-          const allBrands = [...new Set(supplyData.map(r => r.Brand))].filter(Boolean).sort();
-          const visibleBrands = mapExtStay ? allBrands.filter(b => EXTENDED_STAY_BRANDS.has(b)) : allBrands;
+          const companies = ["All", ...new Set(supplyData.map(r => r.Company))].filter(Boolean).sort((a,b) => a==="All"?-1:b==="All"?1:a.localeCompare(b));
+          const brandsForCompany = supplyData
+            .filter(r => (mapCompany === "All" || r.Company === mapCompany) && (!mapExtStay || EXTENDED_STAY_BRANDS.has(r.Brand)))
+            .reduce((s, r) => { s.add(r.Brand); return s; }, new Set());
+          const visibleBrands = [...brandsForCompany].sort();
           return (
           <div>
-            {/* Map controls row */}
             <div style={{ display:"flex", flexWrap:"wrap", gap:10, marginBottom:12, alignItems:"flex-end" }}>
+              {/* View toggle */}
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={label9}>View</label>
                 <div style={{ display:"flex", gap:2 }}>
@@ -1795,15 +1800,27 @@ export default function KalibriDashboard() {
                   <Btn active={mapMode==="pins"}    onClick={() => setMapMode("pins")}    color="#3b82f6">Property Pins</Btn>
                 </div>
               </div>
-              {mapMode === "pins" && (
-                <>
+
+              {mapMode === "pins" && (<>
+                {/* Extended stay */}
+                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                  <label style={label9}>Extended Stay</label>
+                  <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Extended Stay Only</Btn>
+                </div>
+
+                {/* Company dropdown */}
+                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                  <label style={label9}>Parent Company</label>
+                  <select value={mapCompany} onChange={e => { setMapCompany(e.target.value); setMapBrands([]); }} style={{ ...sel, minWidth:220 }}>
+                    {companies.map(c => <option key={c} value={c}>{c === "All" ? "All Companies" : c}</option>)}
+                  </select>
+                </div>
+
+                {/* Brand chips — only shown when company selected or ext stay active */}
+                {(mapCompany !== "All" || mapExtStay) && (
                   <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                    <label style={label9}>Extended Stay</label>
-                    <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Extended Stay Only</Btn>
-                  </div>
-                  <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                    <label style={label9}>Brand Filter <span style={{ color:"#334155" }}>({mapBrands.length > 0 ? mapBrands.length + " selected" : "all"})</span></label>
-                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:700 }}>
+                    <label style={label9}>Brand <span style={{ color:"#475569" }}>({mapBrands.length > 0 ? mapBrands.length + " selected" : "all " + visibleBrands.length})</span></label>
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:800 }}>
                       {visibleBrands.map(b => (
                         <Btn key={b} active={mapBrands.includes(b)}
                           onClick={() => setMapBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
@@ -1811,16 +1828,14 @@ export default function KalibriDashboard() {
                           {b}
                         </Btn>
                       ))}
-                      {mapBrands.length > 0 && (
-                        <Btn active={false} onClick={() => setMapBrands([])} style={{ fontSize:10, padding:"0 8px", height:24 }}>Clear</Btn>
-                      )}
+                      {mapBrands.length > 0 && <Btn active={false} onClick={() => setMapBrands([])} style={{ fontSize:10, padding:"0 8px", height:24 }}>Clear</Btn>}
                     </div>
                   </div>
-                </>
-              )}
+                )}
+              </>)}
               {!mapReady && <span style={{ color:"#f59e0b", fontSize:11 }}>Loading map…</span>}
             </div>
-            <div id="kalibri-map" style={{ height:600, borderRadius:8, border:"1px solid #1e293b", background:"#0a1628" }} />
+            <div id="kalibri-map" style={{ height:580, borderRadius:8, border:"1px solid #1e293b", background:"#0a1628" }} />
           </div>
           );
         })()}
