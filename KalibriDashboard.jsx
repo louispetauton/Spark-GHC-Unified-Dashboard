@@ -268,6 +268,17 @@ function chgColor(v, isOcc = false) {
 
 const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
 
+// ── Extended stay brand list ───────────────────────────────────────────────
+const EXTENDED_STAY_BRANDS = new Set([
+  "Extended Stay America Suites", "Extended Stay America Premier Suites",
+  "Extended Stay America Select Suites", "WoodSpring Suites",
+  "Homewood Suites by Hilton", "Home2 Suites by Hilton", "TownePlace Suites",
+  "Candlewood Suites", "Staybridge Suites", "Hawthorn Suites by Wyndham",
+  "MainStay Suites", "Suburban Studios", "HomeTowne Studios by Red Roof",
+  "InTown Suites", "Sonesta ES Suites", "Sonesta Simply Suites",
+  "stayAPT Suites", "Hyatt House", "Residence Inn",
+]);
+
 // ── Supply data (from participation list) ─────────────────────────────────
 const SUPPLY = {
   "Akron, OH": {
@@ -514,6 +525,7 @@ export default function KalibriDashboard() {
   const [supplyMkt,      setSupplyMkt]      = useState("All");
   const [expandedGeo,    setExpandedGeo]    = useState(null);
   const [expandedTier,   setExpandedTier]   = useState("All Tier");
+  const [extStayOnly,    setExtStayOnly]    = useState(false);
 
   // overview two-panel
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -728,8 +740,10 @@ export default function KalibriDashboard() {
       brandMap[key].props += 1;
       brandMap[key].properties.push(r.Property);
     }
-    return Object.values(brandMap).sort((a, b) => b.rooms - a.rooms);
-  }, [expandedGeo, expandedTier, supplyData, supplyGeoLevel]);
+    let brands = Object.values(brandMap).sort((a, b) => b.rooms - a.rooms);
+    if (extStayOnly) brands = brands.filter(b => EXTENDED_STAY_BRANDS.has(b.brand));
+    return brands;
+  }, [expandedGeo, expandedTier, extStayOnly, supplyData, supplyGeoLevel]);
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sel = {
@@ -1441,7 +1455,9 @@ export default function KalibriDashboard() {
                                       {t.replace(" Tier","") || "All"}
                                     </Btn>
                                   ))}
-                                  <span style={{ marginLeft:8, fontSize:10, color:"#475569" }}>{supplyBrands.length} brands · {supplyBrands.reduce((s,b)=>s+b.rooms,0).toLocaleString()} rooms</span>
+                                  <span style={{ marginLeft:8, borderLeft:"1px solid #1e3a5f", paddingLeft:8 }} />
+                                  <Btn active={extStayOnly} onClick={e => { e.stopPropagation(); setExtStayOnly(v => !v); }} color="#8b5cf6">Extended Stay</Btn>
+                                  <span style={{ marginLeft:4, fontSize:10, color:"#475569" }}>{supplyBrands.length} brands · {supplyBrands.reduce((s,b)=>s+b.rooms,0).toLocaleString()} rooms</span>
                                 </div>
                                 <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:11 }}>
                                   <thead>
