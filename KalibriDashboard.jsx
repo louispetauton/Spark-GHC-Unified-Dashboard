@@ -560,11 +560,22 @@ export default function KalibriDashboard() {
       .then(r => r.text())
       .then(text => {
         const lines = text.trim().split(/\r?\n/);
-        const headers = lines[0].split(",");
+        const parseRow = line => {
+          const vals = []; let inQ = false, cur = "";
+          for (let c = 0; c < line.length; c++) {
+            const ch = line[c];
+            if (ch === '"') { inQ = !inQ; }
+            else if (ch === "," && !inQ) { vals.push(cur); cur = ""; }
+            else { cur += ch; }
+          }
+          vals.push(cur);
+          return vals;
+        };
+        const headers = parseRow(lines[0]).map(h => h.trim());
         const rows = lines.slice(1).map(line => {
-          const vals = line.split(",");
+          const vals = parseRow(line);
           const row = {};
-          headers.forEach((h, i) => row[h.trim()] = (vals[i] || "").trim());
+          headers.forEach((h, i) => row[h] = (vals[i] || "").trim());
           row.Rooms = parseInt(row.Rooms) || 0;
           return row;
         });
