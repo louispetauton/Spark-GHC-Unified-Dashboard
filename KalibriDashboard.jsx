@@ -348,6 +348,17 @@ const EXTENDED_STAY_BRANDS = new Set([
   "stayAPT Suites", "Hyatt House", "Residence Inn",
 ]);
 
+const OUR_MARKETS = [
+  "Akron, OH","Cincinnati, OH","Cleveland, OH","Columbus, OH",
+  "Dayton, OH","Ohio State Area, OH","Sandusky, OH","Toledo, OH","Youngstown, OH",
+];
+const SUBMARKET_BY_MKT = {};
+Object.keys(GEO_COORDS).filter(k => k.includes("::")).forEach(k => {
+  const [mkt, sub] = k.split("::");
+  if (!SUBMARKET_BY_MKT[mkt]) SUBMARKET_BY_MKT[mkt] = [];
+  SUBMARKET_BY_MKT[mkt].push(sub);
+});
+
 // ── Supply data (from participation list) ─────────────────────────────────
 const SUPPLY = {
   "Akron, OH": {
@@ -564,7 +575,7 @@ export default function KalibriDashboard() {
   const [tiers,        setTiers]        = useState(["All Tier"]);
   const [losTiers,     setLosTiers]     = useState([""]);
   const [geoLevel,     setGeoLevel]     = useState("market");
-  const [mktFilter,    setMktFilter]    = useState("All");
+  const [selectedGeos, setSelectedGeos] = useState([]);   // [] = all; market names or "Market::Sub" keys
   const [period1,      setPeriod1]      = useState("");
   const [showForecast, setShowForecast] = useState(false);
   const [timeWindow,   setTimeWindow]   = useState("mo");
@@ -590,8 +601,6 @@ export default function KalibriDashboard() {
 
   // supply tab
   const [supplyData,     setSupplyData]     = useState([]);
-  const [supplyGeoLevel, setSupplyGeoLevel] = useState("market");
-  const [supplyMkt,      setSupplyMkt]      = useState("All");
   const [expandedGeo,    setExpandedGeo]    = useState(null);
   const [expandedTier,   setExpandedTier]   = useState("All Tier");
   const [extStayOnly,    setExtStayOnly]    = useState(false);
@@ -605,8 +614,6 @@ export default function KalibriDashboard() {
   const [mapCompanies,  setMapCompanies] = useState([]);
   const [mapBrands,     setMapBrands]    = useState([]);
   const [mapExtStay,    setMapExtStay]   = useState(false);
-  const [mapMkt,        setMapMkt]       = useState("All");
-  const [mapSubmarket,  setMapSubmarket] = useState("All");
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
@@ -696,9 +703,16 @@ export default function KalibriDashboard() {
         if (mapExtStay)               filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
         if (mapCompanies.length > 0)  filtered = filtered.filter(r => mapCompanies.includes(r.Company));
         if (mapBrands.length > 0)     filtered = filtered.filter(r => mapBrands.includes(r.Brand));
-        const pinMkt = supplyGeoLevel === "submarket" ? mapMkt : "All";
-        if (pinMkt !== "All")           filtered = filtered.filter(r => r.Market === pinMkt);
-        if (mapSubmarket !== "All")     filtered = filtered.filter(r => r.Submarket === mapSubmarket);
+        if (selectedGeos.length > 0) {
+          if (geoLevel === "market") {
+            filtered = filtered.filter(r => selectedGeos.includes(r.Market));
+          } else {
+            filtered = filtered.filter(r => {
+              const k = r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market;
+              return selectedGeos.includes(k);
+            });
+          }
+        }
 
         filtered.forEach(r => {
           const color = TIER_PIN_COLOR[r.Tier] || "#64748b";
@@ -739,12 +753,18 @@ export default function KalibriDashboard() {
         // ── Bubble view ─────────────────────────────────────────────────
         const geoMap = {};
         for (const r of supplyData) {
-          if (supplyMkt !== "All" && r.Market !== supplyMkt && supplyGeoLevel === "submarket") continue;
-          const key = supplyGeoLevel === "market"
+          if (selectedGeos.length > 0) {
+            if (geoLevel === "market" && !selectedGeos.includes(r.Market)) continue;
+            if (geoLevel === "submarket") {
+              const k = r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market;
+              if (!selectedGeos.includes(k)) continue;
+            }
+          }
+          const key = geoLevel === "market"
             ? r.Market
             : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
           if (!geoMap[key]) geoMap[key] = {
-            name: supplyGeoLevel === "market" ? r.Market.replace(", OH","") : (r.Submarket || r.Market.replace(", OH","")),
+            name: geoLevel === "market" ? r.Market.replace(", OH","") : (r.Submarket || r.Market.replace(", OH","")),
             market: r.Market, totalRooms: 0, totalProps: 0, filteredRooms: 0, filteredProps: 0, tiers: {},
           };
           const tierMatch = tiers[0] === "All Tier" || tiers.includes(r.Tier);
@@ -775,7 +795,7 @@ export default function KalibriDashboard() {
           circle.bindPopup(`
             <div style="font-family:sans-serif;min-width:220px;padding:4px">
               <div style="font-size:14px;font-weight:700;margin-bottom:4px">${geo.name}</div>
-              ${supplyGeoLevel === "submarket" ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${geo.market}</div>` : ""}
+              ${geoLevel === "submarket" ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${geo.market}</div>` : ""}
               <div style="font-size:12px;margin-bottom:8px"><b>${geo.totalRooms.toLocaleString()}</b> total rooms · <b>${geo.totalProps}</b> properties</div>
               <table style="font-size:11px;border-collapse:collapse;width:100%">
                 <tr style="color:#64748b;border-bottom:1px solid #e2e8f0"><th style="text-align:left;padding:3px 8px 3px 0">Tier</th><th style="text-align:right;padding:3px 4px">Rooms</th><th style="text-align:right;padding:3px 0 3px 8px">Props</th></tr>
@@ -784,7 +804,7 @@ export default function KalibriDashboard() {
                 <tr><td style="padding:3px 8px 3px 0;color:#10b981;font-weight:500">Upper</td><td style="text-align:right;padding:3px 4px">${upper.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${upper.props}</td></tr>
               </table>
             </div>`);
-          if (supplyGeoLevel === "market") {
+          if (geoLevel === "market") {
             circle.bindTooltip(geo.name, { permanent: true, direction: "top", className: "map-geo-label", offset: [0, -(radius + 2)] });
           }
         }
@@ -809,7 +829,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, mapMkt, mapSubmarket]);
+  }, [tab, mapReady, supplyData, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
@@ -823,14 +843,14 @@ export default function KalibriDashboard() {
   const filteredGeos = useMemo(() => {
     if (!db) return [];
     return Object.entries(geoMeta)
-      .filter(([, v]) => {
-        if (geoLevel === "market")    return !v.isSubmarket;
-        if (geoLevel === "submarket") return v.isSubmarket && (mktFilter === "All" || v.market === mktFilter);
+      .filter(([k, v]) => {
+        if (geoLevel === "market")    return !v.isSubmarket && (selectedGeos.length === 0 || selectedGeos.includes(k));
+        if (geoLevel === "submarket") return v.isSubmarket  && (selectedGeos.length === 0 || selectedGeos.includes(k));
         return false;
       })
       .map(([k]) => k)
       .sort();
-  }, [geoMeta, geoLevel, mktFilter, db]);
+  }, [geoMeta, geoLevel, selectedGeos, db]);
 
   const isForecast = p => p > lastActual;
 
@@ -941,8 +961,15 @@ export default function KalibriDashboard() {
     if (!supplyData.length) return [];
 
     let filtered = supplyData;
-    if (supplyMkt !== "All") {
-      filtered = filtered.filter(r => r.Market === supplyMkt);
+    if (selectedGeos.length > 0) {
+      if (geoLevel === "market") {
+        filtered = filtered.filter(r => selectedGeos.includes(r.Market));
+      } else {
+        filtered = filtered.filter(r => {
+          const k = r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market;
+          return selectedGeos.includes(k);
+        });
+      }
     }
 
     // Tier filter using existing tiers state
@@ -954,8 +981,8 @@ export default function KalibriDashboard() {
     // Group by geo
     const geoMap = {};
     for (const r of filtered) {
-      const geo = supplyGeoLevel === "market" ? r.Market : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
-      const label = supplyGeoLevel === "market" ? r.Market : (r.Submarket || r.Market);
+      const geo = geoLevel === "market" ? r.Market : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
+      const label = geoLevel === "market" ? r.Market : (r.Submarket || r.Market);
       const mkt = r.Market;
       if (!geoMap[geo]) geoMap[geo] = { geo, label, mkt, rooms:0, props:0, tiers:{} };
       const entry = geoMap[geo];
@@ -968,12 +995,12 @@ export default function KalibriDashboard() {
     }
 
     return Object.values(geoMap).sort((a, b) => b.rooms - a.rooms);
-  }, [supplyData, supplyGeoLevel, supplyMkt, tiers]);
+  }, [supplyData, geoLevel, selectedGeos, tiers]);
 
   const supplyBrands = useMemo(() => {
     if (!expandedGeo || !supplyData.length) return [];
     let filtered = supplyData.filter(r => {
-      const geo = supplyGeoLevel === "market" ? r.Market : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
+      const geo = geoLevel === "market" ? r.Market : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
       return geo === expandedGeo;
     });
     if (expandedTier !== "All Tier") {
@@ -991,7 +1018,7 @@ export default function KalibriDashboard() {
     let brands = Object.values(brandMap).sort((a, b) => b.rooms - a.rooms);
     if (extStayOnly) brands = brands.filter(b => EXTENDED_STAY_BRANDS.has(b.brand));
     return brands;
-  }, [expandedGeo, expandedTier, extStayOnly, supplyData, supplyGeoLevel]);
+  }, [expandedGeo, expandedTier, extStayOnly, supplyData, geoLevel]);
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sel = {
@@ -1053,11 +1080,11 @@ export default function KalibriDashboard() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background:"#0f172a", minHeight:"100vh", fontFamily:"'DM Sans','Segoe UI',sans-serif", color:"#e2e8f0" }}>
+    <div style={{ background:"#0f172a", height:"100vh", overflow:"hidden", display:"flex", flexDirection:"column", fontFamily:"'DM Sans','Segoe UI',sans-serif", color:"#e2e8f0" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 
       {/* ── Header ── */}
-      <div style={{ background:"#0f172a", borderBottom:"1px solid #1e293b", padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+      <div style={{ background:"#0f172a", borderBottom:"1px solid #1e293b", padding:"10px 28px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
         <div style={{ display:"flex", alignItems:"center", gap:14 }}>
           <img
             src="https://images.squarespace-cdn.com/content/v1/634ecc23e6a1eb0116ad3e64/b7f36457-07a7-4f6f-94fb-081608156032/SGHC+LogoDeck_MainWH.png"
@@ -1077,7 +1104,7 @@ export default function KalibriDashboard() {
       </div>
 
       {/* ── Global Controls ── */}
-      <div style={{ padding:"12px 28px", background:"#111827", borderBottom:"1px solid #1e293b", display:"flex", flexWrap:"wrap", gap:14, alignItems:"flex-end" }}>
+      <div style={{ padding:"8px 28px", background:"#111827", borderBottom:"1px solid #1e293b", display:"flex", flexWrap:"wrap", gap:10, alignItems:"flex-end", flexShrink:0 }}>
 
         {/* Revenue Type */}
         {tab !== "supply" && tab !== "map" && (
@@ -1153,58 +1180,14 @@ export default function KalibriDashboard() {
         </div>
         )}
 
-        {/* Geography */}
-        {tab !== "supply" && tab !== "map" && (
+        {/* Geography — unified across all tabs */}
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Geography</label>
           <div style={{ display:"flex", gap:2 }}>
-            <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market"); setMktFilter("All"); }} color="#f97316">Markets</Btn>
-            <Btn active={geoLevel==="submarket"} onClick={() => setGeoLevel("submarket")} color="#f97316">Submarkets</Btn>
+            <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market"); setSelectedGeos([]); setExpandedGeo(null); }} color="#f97316">Markets</Btn>
+            <Btn active={geoLevel==="submarket"} onClick={() => { setGeoLevel("submarket"); setSelectedGeos([]); setExpandedGeo(null); }} color="#f97316">Submarkets</Btn>
           </div>
         </div>
-        )}
-
-        {/* Market filter */}
-        {tab !== "supply" && tab !== "map" && geoLevel === "submarket" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-            <label style={label9}>Market</label>
-            <select value={mktFilter} onChange={e => setMktFilter(e.target.value)} style={{ ...sel, minWidth:150 }}>
-              <option value="All">All Markets</option>
-              {markets.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Supply/Map tab geography controls */}
-        {(tab === "supply" || tab === "map") && (
-          <>
-            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-              <label style={label9}>Geography</label>
-              <div style={{ display:"flex", gap:2 }}>
-                <Btn active={supplyGeoLevel==="market"}    onClick={() => { setSupplyGeoLevel("market"); setSupplyMkt("All"); setMapMkt("All"); setMapSubmarket("All"); setExpandedGeo(null); }} color="#f97316">Markets</Btn>
-                <Btn active={supplyGeoLevel==="submarket"} onClick={() => { setSupplyGeoLevel("submarket"); setExpandedGeo(null); }} color="#f97316">Submarkets</Btn>
-              </div>
-            </div>
-            {supplyGeoLevel === "submarket" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={label9}>Market</label>
-                <select value={tab === "map" ? mapMkt : supplyMkt} onChange={e => { if (tab === "map") { setMapMkt(e.target.value); setMapSubmarket("All"); } else setSupplyMkt(e.target.value); }} style={{ ...sel, minWidth:150 }}>
-                  <option value="All">All Markets</option>
-                  {markets.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-            )}
-            {tab === "map" && mapMode === "pins" && supplyGeoLevel === "submarket" && mapMkt !== "All" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={label9}>Submarket</label>
-                <select value={mapSubmarket} onChange={e => setMapSubmarket(e.target.value)} style={{ ...sel, minWidth:180 }}>
-                  <option value="All">All Submarkets</option>
-                  {[...new Set(supplyData.filter(r => r.Market === mapMkt && r.Submarket).map(r => r.Submarket))].sort().map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
-          </>
-        )}
 
         {/* Period */}
         {tab !== "supply" && tab !== "map" && (
@@ -1293,7 +1276,8 @@ export default function KalibriDashboard() {
       </div>
 
       {/* ── Content ── */}
-      <div style={{ padding:"20px 28px" }}>
+      {tab !== "map" ? (
+      <div style={{ padding:"16px 28px", flex:1, overflowY:"auto", minHeight:0 }}>
 
         {/* ════ OVERVIEW ════ */}
         {tab === "overview" && (
@@ -1321,7 +1305,7 @@ export default function KalibriDashboard() {
                 const cols = [
                   ...(geoLevel === "submarket" ? [{ label:"Market", get: r => r.mkt }] : []),
                   { label: geoLevel === "submarket" ? "Submarket" : "Market", get: r => r.label },
-                  { label:"Rooms",            get: r => getSupplyInfo(r.geo)?.rooms ?? "" },
+                  { label:"Rooms",            get: r => getSupply(r.geo)?.rooms ?? "" },
                   { label:"Occ",              get: r => r.m.occ     != null ? (r.m.occ * 100).toFixed(1)+"%" : "" },
                   { label:`Occ ${yoyLabel}`,  get: r => r.m.occ_yoy != null ? (r.m.occ_yoy * 100).toFixed(1)+"pp" : "" },
                   { label:"ADR",              get: r => r.m.adr     != null ? r.m.adr.toFixed(2) : "" },
@@ -1676,7 +1660,7 @@ export default function KalibriDashboard() {
         {tab === "supply" && (
           <div>
             <div style={{ fontSize:10, color:"#334155", marginBottom:10, fontFamily:"'IBM Plex Mono',monospace", display:"flex", gap:6, alignItems:"center" }}>
-              <span style={{ color:"#60a5fa", fontWeight:600 }}>{supplyRows.length} {supplyGeoLevel === "market" ? "markets" : "submarkets"}</span>
+              <span style={{ color:"#60a5fa", fontWeight:600 }}>{supplyRows.length} {geoLevel === "market" ? "markets" : "submarkets"}</span>
               <span style={{ color:"#1a2540" }}>·</span>
               <span style={{ color:"#10b981" }}>{tiers[0] === "All Tier" ? "All Classes" : tiers.map(t => t.replace(" Tier","")).join(" + ")}</span>
               <span style={{ color:"#1a2540" }}>·</span>
@@ -1687,16 +1671,16 @@ export default function KalibriDashboard() {
               <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:12 }}>
                 <thead>
                   <tr style={{ background:"#070f1e" }}>
-                    <th colSpan={supplyGeoLevel === "submarket" ? 2 : 1} style={{ background:"#070f1e", padding:"4px 0" }}/>
+                    <th colSpan={geoLevel === "submarket" ? 2 : 1} style={{ background:"#070f1e", padding:"4px 0" }}/>
                     <th colSpan={4} style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655", borderLeft:"1px solid #0d1526" }}>
                       Supply — Active Properties
                     </th>
                   </tr>
                   <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
                     <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:160 }}>
-                      {supplyGeoLevel === "submarket" ? "Submarket" : "Market"}
+                      {geoLevel === "submarket" ? "Submarket" : "Market"}
                     </th>
-                    {supplyGeoLevel === "submarket" && (
+                    {geoLevel === "submarket" && (
                       <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:100 }}>Market</th>
                     )}
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>Total Rooms (Props)</th>
@@ -1723,7 +1707,7 @@ export default function KalibriDashboard() {
                             <span style={{ marginRight:6, color: isExp ? "#f59e0b" : "#475569", fontSize:10 }}>{isExp ? "▼" : "▶"}</span>
                             {row.label}
                           </td>
-                          {supplyGeoLevel === "submarket" && (
+                          {geoLevel === "submarket" && (
                             <td style={{ padding:"6px 10px", color:"#475569", fontSize:10 }}>{row.mkt}</td>
                           )}
                           <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", fontWeight:600, borderLeft:"1px solid #0d1526" }}>
@@ -1741,7 +1725,7 @@ export default function KalibriDashboard() {
                         </tr>
                         {isExp && (
                           <tr key={row.geo+"_exp"}>
-                            <td colSpan={supplyGeoLevel === "submarket" ? 6 : 5} style={{ padding:0, background:"#0a1628", borderBottom:"2px solid #334155" }}>
+                            <td colSpan={geoLevel === "submarket" ? 6 : 5} style={{ padding:0, background:"#0a1628", borderBottom:"2px solid #334155" }}>
                               <div style={{ padding:"12px 20px" }}>
                                 <div style={{ display:"flex", gap:6, marginBottom:10, alignItems:"center" }}>
                                   <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1 }}>Filter Class</span>
@@ -1795,65 +1779,110 @@ export default function KalibriDashboard() {
           </div>
         )}
 
-        {/* ════ MAP ════ */}
-        {tab === "map" && (() => {
-          const companies = [...new Set(supplyData.map(r => r.Company))].filter(Boolean).sort();
-          const brandsForCompany = supplyData
-            .filter(r => (mapCompanies.length === 0 || mapCompanies.includes(r.Company)) && (!mapExtStay || EXTENDED_STAY_BRANDS.has(r.Brand)))
-            .reduce((s, r) => { s.add(r.Brand); return s; }, new Set());
-          const visibleBrands = [...brandsForCompany].sort();
-          const chipBox = { display:"flex", gap:3, flexWrap:"wrap", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, padding:"6px 8px", maxHeight:76, overflowY:"auto", marginTop:3 };
-          return (
-          <div>
-            {/* ── Controls row ── */}
-            <div style={{ display:"flex", gap:12, marginBottom:10, alignItems:"flex-start", flexWrap:"wrap" }}>
+      </div>
+      ) : (() => {
+        // ════ MAP ════
+        const companies = [...new Set(supplyData.map(r => r.Company))].filter(Boolean).sort();
+        const brandsForCompany = supplyData
+          .filter(r => (mapCompanies.length === 0 || mapCompanies.includes(r.Company)) && (!mapExtStay || EXTENDED_STAY_BRANDS.has(r.Brand)))
+          .reduce((s, r) => { s.add(r.Brand); return s; }, new Set());
+        const visibleBrands = [...brandsForCompany].sort();
+        const PILL_ROW = { display:"flex", gap:3, flexWrap:"nowrap", overflowX:"auto", overflowY:"hidden", padding:"4px 6px", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, marginTop:3, height:28 };
+        const toggleGeo = key => setSelectedGeos(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
+        return (
+          <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
+            {/* ── Single-row filter panel ── */}
+            <div style={{ display:"flex", gap:10, padding:"6px 16px", alignItems:"flex-start", overflowX:"auto", overflowY:"hidden", flexWrap:"nowrap", borderBottom:"1px solid #1e293b", flexShrink:0 }}>
 
-              {/* View + Extended Stay */}
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+              {/* View + Ext Stay */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
                 <label style={label9}>View</label>
                 <div style={{ display:"flex", gap:2 }}>
                   <Btn active={mapMode==="bubbles"} onClick={() => setMapMode("bubbles")} color="#3b82f6">Bubbles</Btn>
-                  <Btn active={mapMode==="pins"}    onClick={() => { setMapMode("pins"); }} color="#3b82f6">Property Pins</Btn>
+                  <Btn active={mapMode==="pins"}    onClick={() => setMapMode("pins")} color="#3b82f6">Pins</Btn>
                   {mapMode === "pins" && <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Ext. Stay</Btn>}
                 </div>
               </div>
 
-              {mapMode === "pins" && (<>
-                {/* Company scrollable box */}
-                <div style={{ display:"flex", flexDirection:"column", flex:"0 0 320px" }}>
-                  <label style={label9}>Parent Company <span style={{ color:"#475569" }}>· {mapCompanies.length > 0 ? mapCompanies.length + " selected" : "all"}{mapCompanies.length > 0 ? <span onClick={() => { setMapCompanies([]); setMapBrands([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span> : ""}</span></label>
-                  <div style={chipBox}>
+              {/* Market / Submarket pills */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, width:280 }}>
+                <label style={label9}>
+                  {geoLevel === "market" ? "Market" : "Submarket"}
+                  {" "}<span style={{ color:"#475569" }}>· {selectedGeos.length > 0 ? `${selectedGeos.length} selected` : "all"}</span>
+                  {selectedGeos.length > 0 && <span onClick={() => setSelectedGeos([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
+                </label>
+                <div style={PILL_ROW}>
+                  {geoLevel === "market"
+                    ? OUR_MARKETS.map(m => (
+                        <Btn key={m} active={selectedGeos.includes(m)} onClick={() => toggleGeo(m)}
+                          color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>
+                          {m.replace(", OH","")}
+                        </Btn>
+                      ))
+                    : OUR_MARKETS.map(m => (
+                        <React.Fragment key={m}>
+                          <span style={{ color:"#475569", fontSize:8, fontWeight:700, textTransform:"uppercase", padding:"0 5px", alignSelf:"center", flexShrink:0, letterSpacing:1, borderLeft:"1px solid #1e293b", marginLeft:2 }}>
+                            {m.replace(", OH","")}
+                          </span>
+                          {(SUBMARKET_BY_MKT[m] || []).map(sub => {
+                            const gkey = `${m}::${sub}`;
+                            return (
+                              <Btn key={gkey} active={selectedGeos.includes(gkey)} onClick={() => toggleGeo(gkey)}
+                                color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>
+                                {sub}
+                              </Btn>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))
+                  }
+                </div>
+              </div>
+
+              {/* Company pills (pins mode only) */}
+              {mapMode === "pins" && (
+                <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, width:280 }}>
+                  <label style={label9}>
+                    Parent Company
+                    {" "}<span style={{ color:"#475569" }}>· {mapCompanies.length > 0 ? `${mapCompanies.length} selected` : "all"}</span>
+                    {mapCompanies.length > 0 && <span onClick={() => { setMapCompanies([]); setMapBrands([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
+                  </label>
+                  <div style={PILL_ROW}>
                     {companies.map(c => (
                       <Btn key={c} active={mapCompanies.includes(c)}
                         onClick={() => { setMapCompanies(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setMapBrands([]); }}
-                        color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22 }}>{c}</Btn>
+                        color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{c}</Btn>
                     ))}
                   </div>
                 </div>
+              )}
 
-                {/* Brand scrollable box — only when filtered */}
-                {(mapCompanies.length > 0 || mapExtStay) && (
-                  <div style={{ display:"flex", flexDirection:"column", flex:"0 0 320px" }}>
-                    <label style={label9}>Brand <span style={{ color:"#475569" }}>· {mapBrands.length > 0 ? mapBrands.length + " selected" : "all " + visibleBrands.length}{mapBrands.length > 0 ? <span onClick={() => setMapBrands([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span> : ""}</span></label>
-                    <div style={chipBox}>
-                      {visibleBrands.map(b => (
-                        <Btn key={b} active={mapBrands.includes(b)}
-                          onClick={() => setMapBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
-                          color="#6366f1" style={{ fontSize:10, padding:"0 7px", height:22 }}>{b}</Btn>
-                      ))}
-                    </div>
+              {/* Brand pills */}
+              {mapMode === "pins" && (mapCompanies.length > 0 || mapExtStay) && (
+                <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, width:280 }}>
+                  <label style={label9}>
+                    Brand
+                    {" "}<span style={{ color:"#475569" }}>· {mapBrands.length > 0 ? `${mapBrands.length} selected` : `all ${visibleBrands.length}`}</span>
+                    {mapBrands.length > 0 && <span onClick={() => setMapBrands([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
+                  </label>
+                  <div style={PILL_ROW}>
+                    {visibleBrands.map(b => (
+                      <Btn key={b} active={mapBrands.includes(b)}
+                        onClick={() => setMapBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
+                        color="#6366f1" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{b}</Btn>
+                    ))}
                   </div>
-                )}
-              </>)}
-              {!mapReady && <span style={{ color:"#f59e0b", fontSize:11, alignSelf:"center" }}>Loading map…</span>}
+                </div>
+              )}
+
+              {!mapReady && <span style={{ color:"#f59e0b", fontSize:11, alignSelf:"center", flexShrink:0 }}>Loading map…</span>}
             </div>
 
-            <div id="kalibri-map" style={{ height:560, borderRadius:8, border:"1px solid #1e293b", background:"#0a1628" }} />
+            {/* Map fills remaining height */}
+            <div id="kalibri-map" style={{ flex:1, minHeight:0, background:"#0a1628" }} />
           </div>
-          );
-        })()}
-
-      </div>
+        );
+      })()}
     </div>
   );
 }
