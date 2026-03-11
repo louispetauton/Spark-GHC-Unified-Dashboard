@@ -279,6 +279,65 @@ function chgColor(v, isOcc = false) {
 const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
 
 // ── Extended stay brand list ───────────────────────────────────────────────
+// ── Map coordinates for Ohio markets & submarkets ─────────────────────────
+const GEO_COORDS = {
+  // Markets
+  "Akron, OH":             [41.0814, -81.5190],
+  "Cincinnati, OH":        [39.1031, -84.5120],
+  "Cleveland, OH":         [41.4993, -81.6944],
+  "Columbus, OH":          [39.9612, -82.9988],
+  "Dayton, OH":            [39.7589, -84.1916],
+  "Ohio State Area, OH":   [40.4173, -82.9071],
+  "Sandusky, OH":          [41.4489, -82.7079],
+  "Toledo, OH":            [41.6639, -83.5552],
+  "Youngstown, OH":        [41.0998, -80.6495],
+  // Akron submarkets
+  "Akron, OH::Akron":                    [41.0814, -81.5190],
+  "Akron, OH::Akron West":               [41.1500, -81.6800],
+  "Akron, OH::Canton":                   [40.7989, -81.3784],
+  "Akron, OH::Twinsburg/Streetsboro":    [41.3123, -81.4401],
+  // Cincinnati submarkets
+  "Cincinnati, OH::CVG Airport":         [39.0489, -84.6678],
+  "Cincinnati, OH::Cincinnati East":     [39.1200, -84.3200],
+  "Cincinnati, OH::Cincinnati North":    [39.2700, -84.4500],
+  "Cincinnati, OH::Cincinnati West":     [39.0900, -84.6500],
+  "Cincinnati, OH::Downtown Cincinnati": [39.1031, -84.5120],
+  "Cincinnati, OH::Franklin":            [39.5578, -84.3047],
+  // Cleveland submarkets
+  "Cleveland, OH::Avon/I90 West":        [41.4517, -82.0354],
+  "Cleveland, OH::Cleveland Heights":    [41.5200, -81.5566],
+  "Cleveland, OH::Cleveland Southeast":  [41.3500, -81.5000],
+  "Cleveland, OH::Downtown Cleveland":   [41.4993, -81.6944],
+  "Cleveland, OH::Strongsville/Medina":  [41.3145, -81.8357],
+  // Columbus submarkets
+  "Columbus, OH::CMH Airport":           [39.9980, -82.8919],
+  "Columbus, OH::Columbus South":        [39.8200, -82.9988],
+  "Columbus, OH::Columbus West":         [39.9612, -83.1500],
+  "Columbus, OH::Downtown Columbus":     [39.9612, -82.9988],
+  "Columbus, OH::Newark":                [40.0581, -82.4013],
+  "Columbus, OH::Worthington/Westerville":[40.0931, -82.9557],
+  // Dayton submarkets
+  "Dayton, OH::Dayton Northeast/Fairborn":[39.8270, -84.0219],
+  "Dayton, OH::Dayton South/Miamisburg": [39.6439, -84.2897],
+  "Dayton, OH::Downtown/DAY Airport":    [39.9023, -84.2194],
+  "Dayton, OH::Springfield":             [39.9242, -83.8088],
+  "Dayton, OH::Tipp City/Troy":          [40.0614, -84.2016],
+  // Ohio State Area submarkets
+  "Ohio State Area, OH::Findlay":        [41.0442, -83.6499],
+  "Ohio State Area, OH::I70 Corridor":   [39.9500, -82.0000],
+  "Ohio State Area, OH::Lima":           [40.7423, -84.1052],
+  "Ohio State Area, OH::Mansfield/Ashland":[40.7584, -82.5154],
+  "Ohio State Area, OH::Ohio North":     [41.4000, -82.7000],
+  "Ohio State Area, OH::Ohio South":     [39.3000, -82.5000],
+  // Sandusky
+  "Sandusky, OH::Sandusky":             [41.4489, -82.7079],
+  // Toledo submarkets
+  "Toledo, OH::Toledo East":             [41.6639, -83.3500],
+  "Toledo, OH::Toledo West":             [41.6639, -83.7000],
+  // Youngstown
+  "Youngstown, OH::Youngstown":          [41.0998, -80.6495],
+};
+
 const EXTENDED_STAY_BRANDS = new Set([
   "Extended Stay America Suites", "Extended Stay America Premier Suites",
   "Extended Stay America Select Suites", "WoodSpring Suites",
@@ -540,6 +599,10 @@ export default function KalibriDashboard() {
   // overview two-panel
   const [hoveredRow, setHoveredRow] = useState(null);
 
+  // map tab
+  const [mapReady, setMapReady] = useState(false);
+  const mapInstanceRef = useRef(null);
+
   useEffect(() => {
     loadData()
       .then(d => {
@@ -583,6 +646,130 @@ export default function KalibriDashboard() {
       })
       .catch(() => {}); // non-fatal
   }, []);
+
+  // Load Leaflet from CDN
+  useEffect(() => {
+    if (window.L) { setMapReady(true); return; }
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload = () => setMapReady(true);
+    document.head.appendChild(script);
+  }, []);
+
+  // Build / rebuild map
+  useEffect(() => {
+    if (tab !== "map" || !mapReady || !supplyData.length) return;
+    let map = null;
+    const timer = setTimeout(() => {
+      const container = document.getElementById("kalibri-map");
+      if (!container) return;
+      const L = window.L;
+      map = L.map(container, { zoomControl: true, scrollWheelZoom: true }).setView([40.4173, -82.9071], 7);
+      mapInstanceRef.current = map;
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>',
+        subdomains: "abcd", maxZoom: 19,
+      }).addTo(map);
+
+      // Group supply data by geo
+      const geoMap = {};
+      for (const r of supplyData) {
+        if (supplyMkt !== "All" && r.Market !== supplyMkt && supplyGeoLevel === "submarket") continue;
+        const key = supplyGeoLevel === "market"
+          ? r.Market
+          : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
+        if (!geoMap[key]) geoMap[key] = {
+          name: supplyGeoLevel === "market" ? r.Market.replace(", OH","") : (r.Submarket || r.Market.replace(", OH","")),
+          market: r.Market, totalRooms: 0, totalProps: 0, filteredRooms: 0, filteredProps: 0, tiers: {},
+        };
+        const tierMatch = tiers[0] === "All Tier" || tiers.includes(r.Tier);
+        geoMap[key].totalRooms += r.Rooms;
+        geoMap[key].totalProps += 1;
+        if (!geoMap[key].tiers[r.Tier]) geoMap[key].tiers[r.Tier] = { rooms: 0, props: 0 };
+        geoMap[key].tiers[r.Tier].rooms += r.Rooms;
+        geoMap[key].tiers[r.Tier].props += 1;
+        if (tierMatch) { geoMap[key].filteredRooms += r.Rooms; geoMap[key].filteredProps += 1; }
+      }
+
+      const geos = Object.entries(geoMap).filter(([k]) => GEO_COORDS[k] && geoMap[k].filteredRooms > 0);
+      const maxRooms = Math.max(...geos.map(([, g]) => g.filteredRooms), 1);
+      const tierColor = tiers[0] === "All Tier" ? "#3b82f6"
+        : tiers.length === 1 && tiers[0] === "Lower Tier" ? "#ef4444"
+        : tiers.length === 1 && tiers[0] === "Mid Tier"   ? "#f59e0b"
+        : tiers.length === 1 && tiers[0] === "Upper Tier" ? "#10b981"
+        : "#8b5cf6";
+
+      for (const [key, geo] of geos) {
+        const [lat, lng] = GEO_COORDS[key];
+        const radius = Math.max(8, Math.sqrt(geo.filteredRooms / maxRooms) * 42);
+        const lower  = geo.tiers["Lower Tier"] || { rooms:0, props:0 };
+        const mid    = geo.tiers["Mid Tier"]   || { rooms:0, props:0 };
+        const upper  = geo.tiers["Upper Tier"] || { rooms:0, props:0 };
+
+        const circle = L.circleMarker([lat, lng], {
+          radius, fillColor: tierColor, color: "#ffffff", weight: 1.5, opacity: 0.9, fillOpacity: 0.55,
+        }).addTo(map);
+
+        circle.bindPopup(`
+          <div style="font-family:sans-serif;min-width:220px;padding:4px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px">${geo.name}</div>
+            ${supplyGeoLevel === "submarket" ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${geo.market}</div>` : ""}
+            <div style="font-size:12px;margin-bottom:8px"><b>${geo.totalRooms.toLocaleString()}</b> total rooms · <b>${geo.totalProps}</b> properties</div>
+            <table style="font-size:11px;border-collapse:collapse;width:100%">
+              <tr style="color:#64748b;border-bottom:1px solid #e2e8f0">
+                <th style="text-align:left;padding:3px 8px 3px 0">Tier</th>
+                <th style="text-align:right;padding:3px 4px">Rooms</th>
+                <th style="text-align:right;padding:3px 0 3px 8px">Props</th>
+              </tr>
+              <tr><td style="padding:3px 8px 3px 0;color:#ef4444;font-weight:500">Lower</td><td style="text-align:right;padding:3px 4px">${lower.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${lower.props}</td></tr>
+              <tr><td style="padding:3px 8px 3px 0;color:#f59e0b;font-weight:500">Mid</td><td style="text-align:right;padding:3px 4px">${mid.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${mid.props}</td></tr>
+              <tr><td style="padding:3px 8px 3px 0;color:#10b981;font-weight:500">Upper</td><td style="text-align:right;padding:3px 4px">${upper.rooms.toLocaleString()}</td><td style="text-align:right;padding:3px 0 3px 8px">${upper.props}</td></tr>
+            </table>
+          </div>`);
+
+        if (supplyGeoLevel === "market") {
+          circle.bindTooltip(geo.name, {
+            permanent: true, direction: "top", className: "map-geo-label", offset: [0, -(radius + 2)],
+          });
+        }
+      }
+
+      // Legend
+      const legend = L.control({ position: "bottomright" });
+      legend.onAdd = () => {
+        const div = L.DomUtil.create("div");
+        const sizes = [[maxRooms, "Max"], [Math.round(maxRooms * 0.5), "50%"], [Math.round(maxRooms * 0.25), "25%"]];
+        div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8">
+          <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">Rooms (filtered tier)</div>
+          ${sizes.map(([r, lbl]) => {
+            const px = Math.max(8, Math.sqrt(r / maxRooms) * 42);
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <svg width="${px*2+2}" height="${px*2+2}" style="flex-shrink:0"><circle cx="${px+1}" cy="${px+1}" r="${px}" fill="${tierColor}" fill-opacity="0.55" stroke="#fff" stroke-width="1.5"/></svg>
+              <span>${r.toLocaleString()} <span style="color:#475569">${lbl}</span></span>
+            </div>`;
+          }).join("")}
+        </div>`;
+        return div;
+      };
+      legend.addTo(map);
+
+      // Label CSS
+      const style = document.createElement("style");
+      style.id = "kalibri-map-style";
+      style.textContent = `.map-geo-label{background:transparent!important;border:none!important;box-shadow:none!important;font-size:10px!important;font-weight:700!important;color:#e2e8f0!important;text-shadow:0 1px 4px rgba(0,0,0,0.9)!important;white-space:nowrap!important}.map-geo-label::before{display:none!important}.leaflet-popup-content-wrapper{background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.3)}.leaflet-popup-tip{background:#fff}`;
+      if (!document.getElementById("kalibri-map-style")) document.head.appendChild(style);
+    }, 80);
+
+    return () => {
+      clearTimeout(timer);
+      if (map) { map.remove(); map = null; }
+      mapInstanceRef.current = null;
+    };
+  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
@@ -853,7 +1040,7 @@ export default function KalibriDashboard() {
       <div style={{ padding:"12px 28px", background:"#111827", borderBottom:"1px solid #1e293b", display:"flex", flexWrap:"wrap", gap:14, alignItems:"flex-end" }}>
 
         {/* Revenue Type */}
-        {tab !== "supply" && (
+        {tab !== "supply" && tab !== "map" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Revenue Type</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -883,7 +1070,7 @@ export default function KalibriDashboard() {
         </div>
 
         {/* Length of Stay */}
-        {tab !== "supply" && (
+        {tab !== "supply" && tab !== "map" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Length of Stay</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -905,7 +1092,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Aggregation disclaimer */}
-        {tab !== "supply" && (tiers.length > 1 || losTiers.length > 1) && (
+        {tab !== "supply" && tab !== "map" && (tiers.length > 1 || losTiers.length > 1) && (
           <div style={{ display:"flex", alignItems:"flex-start", gap:6, background:"#1e293b", border:"1px solid #f59e0b55", borderRadius:6, padding:"6px 10px", maxWidth:420 }}>
             <span style={{ color:"#f59e0b", fontSize:13, lineHeight:1 }}>⚠</span>
             <span style={{ color:"#94a3b8", fontSize:11, lineHeight:1.4 }}>
@@ -915,7 +1102,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Time Window */}
-        {tab !== "supply" && (
+        {tab !== "supply" && tab !== "map" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Time Window</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -927,7 +1114,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Geography */}
-        {tab !== "supply" && (
+        {tab !== "supply" && tab !== "map" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Geography</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -938,7 +1125,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Market filter */}
-        {tab !== "supply" && geoLevel === "submarket" && (
+        {tab !== "supply" && tab !== "map" && geoLevel === "submarket" && (
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
             <label style={label9}>Market</label>
             <select value={mktFilter} onChange={e => setMktFilter(e.target.value)} style={{ ...sel, minWidth:150 }}>
@@ -948,8 +1135,8 @@ export default function KalibriDashboard() {
           </div>
         )}
 
-        {/* Supply tab geography controls */}
-        {tab === "supply" && (
+        {/* Supply/Map tab geography controls */}
+        {(tab === "supply" || tab === "map") && (
           <>
             <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
               <label style={label9}>Geography</label>
@@ -971,7 +1158,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Period */}
-        {tab !== "supply" && (
+        {tab !== "supply" && tab !== "map" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Period</label>
           <select value={period1} onChange={e => setPeriod1(e.target.value)} style={{ ...sel, minWidth:120, ...(isForecast(period1) ? { border:"1px solid #f59e0b55", color:"#fbbf24" } : {}) }}>
@@ -996,7 +1183,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Include Forecast */}
-        {tab !== "supply" && (
+        {tab !== "supply" && tab !== "map" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Forecast</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -1049,7 +1236,7 @@ export default function KalibriDashboard() {
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Analysis</label>
           <div style={{ display:"flex", gap:2 }}>
-            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"],["supply","Supply"]].map(([id, lbl]) => (
+            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"],["supply","Supply"],["map","Map"]].map(([id, lbl]) => (
               <Btn key={id} active={tab===id} onClick={() => setTab(id)} color="#6366f1">{lbl}</Btn>
             ))}
           </div>
@@ -1556,6 +1743,21 @@ export default function KalibriDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ════ MAP ════ */}
+        {tab === "map" && (
+          <div>
+            <div style={{ fontSize:10, color:"#334155", marginBottom:10, fontFamily:"'IBM Plex Mono',monospace", display:"flex", gap:6, alignItems:"center" }}>
+              <span style={{ color:"#60a5fa", fontWeight:600 }}>{supplyGeoLevel === "market" ? "9 markets" : "35 submarkets"}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span style={{ color:"#10b981" }}>{tiers[0] === "All Tier" ? "All Classes" : tiers.map(t => t.replace(" Tier","")).join(" + ")}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span>Circle size = rooms · Click a circle for breakdown</span>
+              {!mapReady && <span style={{ color:"#f59e0b", marginLeft:4 }}>Loading map…</span>}
+            </div>
+            <div id="kalibri-map" style={{ height:600, borderRadius:8, border:"1px solid #1e293b", background:"#0a1628" }} />
           </div>
         )}
 
