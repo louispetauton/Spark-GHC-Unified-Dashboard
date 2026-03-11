@@ -600,11 +600,11 @@ export default function KalibriDashboard() {
   const [hoveredRow, setHoveredRow] = useState(null);
 
   // map tab
-  const [mapReady,     setMapReady]     = useState(false);
-  const [mapMode,      setMapMode]      = useState("bubbles");   // "bubbles" | "pins"
-  const [mapCompany,   setMapCompany]   = useState("All");
-  const [mapBrands,    setMapBrands]    = useState([]);          // selected brand names (empty = all)
-  const [mapExtStay,   setMapExtStay]   = useState(false);
+  const [mapReady,      setMapReady]     = useState(false);
+  const [mapMode,       setMapMode]      = useState("bubbles");   // "bubbles" | "pins"
+  const [mapCompanies,  setMapCompanies] = useState([]);          // selected companies (empty = all)
+  const [mapBrands,     setMapBrands]    = useState([]);          // selected brand names (empty = all)
+  const [mapExtStay,    setMapExtStay]   = useState(false);
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
@@ -691,9 +691,9 @@ export default function KalibriDashboard() {
         // ── Property pins ───────────────────────────────────────────────
         let filtered = supplyData.filter(r => r.Lat && r.Lng);
         if (tiers[0] !== "All Tier") filtered = filtered.filter(r => tiers.includes(r.Tier));
-        if (mapExtStay)              filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
-        if (mapCompany !== "All")    filtered = filtered.filter(r => r.Company === mapCompany);
-        if (mapBrands.length > 0)    filtered = filtered.filter(r => mapBrands.includes(r.Brand));
+        if (mapExtStay)               filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
+        if (mapCompanies.length > 0)  filtered = filtered.filter(r => mapCompanies.includes(r.Company));
+        if (mapBrands.length > 0)     filtered = filtered.filter(r => mapBrands.includes(r.Brand));
         if (supplyMkt !== "All")     filtered = filtered.filter(r => r.Market === supplyMkt);
 
         filtered.forEach(r => {
@@ -805,7 +805,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapCompany, mapBrands, mapExtStay]);
+  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapCompanies, mapBrands, mapExtStay]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
@@ -1784,9 +1784,9 @@ export default function KalibriDashboard() {
 
         {/* ════ MAP ════ */}
         {tab === "map" && (() => {
-          const companies = ["All", ...new Set(supplyData.map(r => r.Company))].filter(Boolean).sort((a,b) => a==="All"?-1:b==="All"?1:a.localeCompare(b));
+          const companies = [...new Set(supplyData.map(r => r.Company))].filter(Boolean).sort();
           const brandsForCompany = supplyData
-            .filter(r => (mapCompany === "All" || r.Company === mapCompany) && (!mapExtStay || EXTENDED_STAY_BRANDS.has(r.Brand)))
+            .filter(r => (mapCompanies.length === 0 || mapCompanies.includes(r.Company)) && (!mapExtStay || EXTENDED_STAY_BRANDS.has(r.Brand)))
             .reduce((s, r) => { s.add(r.Brand); return s; }, new Set());
           const visibleBrands = [...brandsForCompany].sort();
           return (
@@ -1808,19 +1808,26 @@ export default function KalibriDashboard() {
                   <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Extended Stay Only</Btn>
                 </div>
 
-                {/* Company dropdown */}
+                {/* Company chips */}
                 <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                  <label style={label9}>Parent Company</label>
-                  <select value={mapCompany} onChange={e => { setMapCompany(e.target.value); setMapBrands([]); }} style={{ ...sel, minWidth:220 }}>
-                    {companies.map(c => <option key={c} value={c}>{c === "All" ? "All Companies" : c}</option>)}
-                  </select>
+                  <label style={label9}>Parent Company <span style={{ color:"#475569" }}>({mapCompanies.length > 0 ? mapCompanies.length + " selected" : "all"})</span></label>
+                  <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:900 }}>
+                    {companies.map(c => (
+                      <Btn key={c} active={mapCompanies.includes(c)}
+                        onClick={() => { setMapCompanies(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setMapBrands([]); }}
+                        color="#f97316" style={{ fontSize:10, padding:"0 8px", height:24 }}>
+                        {c}
+                      </Btn>
+                    ))}
+                    {mapCompanies.length > 0 && <Btn active={false} onClick={() => { setMapCompanies([]); setMapBrands([]); }} style={{ fontSize:10, padding:"0 8px", height:24 }}>Clear</Btn>}
+                  </div>
                 </div>
 
-                {/* Brand chips — only shown when company selected or ext stay active */}
-                {(mapCompany !== "All" || mapExtStay) && (
+                {/* Brand chips — only shown when companies or ext stay filtered */}
+                {(mapCompanies.length > 0 || mapExtStay) && (
                   <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                     <label style={label9}>Brand <span style={{ color:"#475569" }}>({mapBrands.length > 0 ? mapBrands.length + " selected" : "all " + visibleBrands.length})</span></label>
-                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:800 }}>
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", maxWidth:900 }}>
                       {visibleBrands.map(b => (
                         <Btn key={b} active={mapBrands.includes(b)}
                           onClick={() => setMapBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
