@@ -614,7 +614,12 @@ export default function KalibriDashboard() {
   const [mapCompanies,  setMapCompanies] = useState([]);
   const [mapBrands,     setMapBrands]    = useState([]);
   const [mapExtStay,    setMapExtStay]   = useState(false);
-  const [drillMkt,      setDrillMkt]     = useState(null); // focused market in submarket drill-down
+  const [drillMkt,      setDrillMkt]     = useState(null);
+  // Construct Connect layer
+  const [ccData,        setCcData]       = useState([]);
+  const [showCC,        setShowCC]       = useState(false);
+  const [ccTypeFilter,  setCcTypeFilter] = useState("all"); // "all" | "hotel" | "elderly"
+  const [ccStatuses,    setCcStatuses]   = useState([]);    // [] = all statuses
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
@@ -659,6 +664,31 @@ export default function KalibriDashboard() {
         setSupplyData(rows);
       })
       .catch(() => {}); // non-fatal
+
+    fetch("/construct_connect.csv")
+      .then(r => r.text())
+      .then(text => {
+        const lines = text.trim().split(/\r?\n/);
+        const headers = lines[0].split(",").map(h => h.trim());
+        const rows = lines.slice(1).map(line => {
+          const vals = []; let inQ = false, cur = "";
+          for (let c = 0; c < line.length; c++) {
+            const ch = line[c];
+            if (ch === '"') { inQ = !inQ; }
+            else if (ch === "," && !inQ) { vals.push(cur); cur = ""; }
+            else { cur += ch; }
+          }
+          vals.push(cur);
+          const row = {};
+          headers.forEach((h, i) => row[h] = (vals[i] || "").trim());
+          row.Value = parseInt(row.Value) || 0;
+          row.Lat   = parseFloat(row.Lat)  || null;
+          row.Lng   = parseFloat(row.Lng)  || null;
+          return row;
+        }).filter(r => r.Lat && r.Lng);
+        setCcData(rows);
+      })
+      .catch(() => {});
   }, []);
 
   // Load Leaflet from CDN
@@ -823,6 +853,66 @@ export default function KalibriDashboard() {
         };
         legend.addTo(map);
       }
+
+      // ── Construct Connect layer ─────────────────────────────────────
+      if (showCC && ccData.length) {
+        const CC_STATUS_COLOR = {
+          "Conceptual":                 "#64748b",
+          "Design":                     "#3b82f6",
+          "Final Planning":             "#8b5cf6",
+          "GC Bidding":                 "#f59e0b",
+          "Sub-Bidding":                "#f59e0b",
+          "Pre-Construction/Negotiated":"#f97316",
+          "Award":                      "#10b981",
+          "Post-Bid":                   "#10b981",
+          "Bid Results":                "#10b981",
+          "Under Construction":         "#22c55e",
+        };
+        const fmtVal = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : v ? `$${v}` : "—";
+
+        let ccFiltered = ccData;
+        if (ccTypeFilter === "hotel")   ccFiltered = ccFiltered.filter(r => r.HasHotel   === "TRUE");
+        if (ccTypeFilter === "elderly") ccFiltered = ccFiltered.filter(r => r.HasElderly === "TRUE");
+        if (ccStatuses.length > 0)      ccFiltered = ccFiltered.filter(r => ccStatuses.includes(r.Status));
+
+        ccFiltered.forEach(r => {
+          const color = CC_STATUS_COLOR[r.Status] || "#64748b";
+          const icon = L.divIcon({
+            html: `<div style="width:9px;height:9px;background:${color};transform:rotate(45deg);border:1px solid rgba(0,0,0,0.5);border-radius:1px"></div>`,
+            className: "", iconSize: [9, 9], iconAnchor: [5, 5],
+          });
+          const marker = L.marker([r.Lat, r.Lng], { icon }).addTo(map);
+          marker.bindPopup(`
+            <div style="font-family:sans-serif;min-width:220px;padding:4px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px">${r.Title}</div>
+              <div style="font-size:11px;color:#64748b;margin-bottom:6px">${r.City}, ${r.State}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+                <span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:${color}22;color:${color}">${r.Status}</span>
+                ${r.HasHotel === "TRUE" ? '<span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:#3b82f622;color:#3b82f6">Hotel</span>' : ""}
+                ${r.HasElderly === "TRUE" ? '<span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:#8b5cf622;color:#8b5cf6">Elderly Care</span>' : ""}
+              </div>
+              <table style="font-size:11px;border-collapse:collapse;width:100%">
+                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Value</td><td style="font-weight:700;color:#10b981">${fmtVal(r.Value)}</td></tr>
+                ${r.BidDate ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Bid Date</td><td>${r.BidDate}</td></tr>` : ""}
+                ${r.Uses ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Uses</td><td style="color:#94a3b8">${r.Uses}</td></tr>` : ""}
+              </table>
+            </div>`);
+        });
+
+        // CC legend
+        const ccLegend = L.control({ position: "bottomleft" });
+        ccLegend.onAdd = () => {
+          const div = L.DomUtil.create("div");
+          const visibleStatuses = [...new Set(ccFiltered.map(r => r.Status))].sort();
+          div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8;max-width:180px">
+            <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">CC Projects · ${ccFiltered.length}</div>
+            ${visibleStatuses.map(s => { const c = CC_STATUS_COLOR[s]||"#64748b"; return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><div style="width:8px;height:8px;background:${c};transform:rotate(45deg);flex-shrink:0;border-radius:1px"></div><span style="color:${c};font-size:10px">${s}</span></div>`; }).join("")}
+          </div>`;
+          return div;
+        };
+        ccLegend.addTo(map);
+      }
+
     }, 80);
 
     return () => {
@@ -830,7 +920,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay]);
+  }, [tab, mapReady, supplyData, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
@@ -1790,6 +1880,8 @@ export default function KalibriDashboard() {
         const visibleBrands = [...brandsForCompany].sort();
         const PILL_ROW = { display:"flex", gap:3, flexWrap:"nowrap", overflowX:"auto", overflowY:"hidden", padding:"4px 6px", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, marginTop:3, height:28 };
         const toggleGeo = key => setSelectedGeos(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
+        const CC_STATUSES_ALL = ["Conceptual","Design","Final Planning","GC Bidding","Sub-Bidding","Pre-Construction/Negotiated","Award","Post-Bid","Bid Results","Under Construction"];
+        const CC_STATUS_COLOR = { "Conceptual":"#64748b","Design":"#3b82f6","Final Planning":"#8b5cf6","GC Bidding":"#f59e0b","Sub-Bidding":"#f59e0b","Pre-Construction/Negotiated":"#f97316","Award":"#10b981","Post-Bid":"#10b981","Bid Results":"#10b981","Under Construction":"#22c55e" };
         return (
           <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
             {/* ── Single-row filter panel ── */}
@@ -1906,6 +1998,31 @@ export default function KalibriDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* Construct Connect layer */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, borderLeft:"1px solid #1e293b", paddingLeft:10 }}>
+                <label style={label9}>Construct Connect {ccData.length > 0 && <span style={{ color:"#475569" }}>· {ccData.length.toLocaleString()} projects</span>}</label>
+                <div style={{ display:"flex", gap:2 }}>
+                  <Btn active={showCC} onClick={() => setShowCC(v => !v)} color="#06b6d4">{showCC ? "Hide" : "Show"} Layer</Btn>
+                  {showCC && <>
+                    <Btn active={ccTypeFilter==="all"}     onClick={() => setCcTypeFilter("all")}     color="#06b6d4">All</Btn>
+                    <Btn active={ccTypeFilter==="hotel"}   onClick={() => setCcTypeFilter("hotel")}   color="#3b82f6">Hotel</Btn>
+                    <Btn active={ccTypeFilter==="elderly"} onClick={() => setCcTypeFilter("elderly")} color="#8b5cf6">Elderly</Btn>
+                  </>}
+                </div>
+                {showCC && (
+                  <div style={PILL_ROW}>
+                    {CC_STATUSES_ALL.map(s => (
+                      <Btn key={s} active={ccStatuses.includes(s)}
+                        onClick={() => setCcStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                        color={CC_STATUS_COLOR[s]} style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>
+                        {s}
+                      </Btn>
+                    ))}
+                    {ccStatuses.length > 0 && <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, alignSelf:"center", marginLeft:4, flexShrink:0 }}>clear</span>}
+                  </div>
+                )}
+              </div>
 
               {!mapReady && <span style={{ color:"#f59e0b", fontSize:11, alignSelf:"center", flexShrink:0 }}>Loading map…</span>}
             </div>
