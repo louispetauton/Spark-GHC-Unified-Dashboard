@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell, ReferenceArea,
@@ -508,6 +508,16 @@ export default function KalibriDashboard() {
   const [cagrSortDir,    setCagrSortDir]    = useState("desc");
   const [cagrChartMetric,setCagrChartMetric]= useState("revpar_cagr");
 
+  // supply tab
+  const [supplyData,     setSupplyData]     = useState([]);
+  const [supplyGeoLevel, setSupplyGeoLevel] = useState("market");
+  const [supplyMkt,      setSupplyMkt]      = useState("All");
+  const [expandedGeo,    setExpandedGeo]    = useState(null);
+  const [expandedTier,   setExpandedTier]   = useState("All Tier");
+
+  // overview two-panel
+  const [hoveredRow, setHoveredRow] = useState(null);
+
   useEffect(() => {
     loadData()
       .then(d => {
@@ -523,6 +533,22 @@ export default function KalibriDashboard() {
         setCagrStart(allPeriods.includes(sixYrPrior) ? sixYrPrior : allPeriods[0]);
       })
       .catch(e => { setLoadError(e.message); setLoading(false); });
+
+    fetch("/kalibri_supply_detail.csv")
+      .then(r => r.text())
+      .then(text => {
+        const lines = text.trim().split(/\r?\n/);
+        const headers = lines[0].split(",");
+        const rows = lines.slice(1).map(line => {
+          const vals = line.split(",");
+          const row = {};
+          headers.forEach((h, i) => row[h.trim()] = (vals[i] || "").trim());
+          row.Rooms = parseInt(row.Rooms) || 0;
+          return row;
+        });
+        setSupplyData(rows);
+      })
+      .catch(() => {}); // non-fatal
   }, []);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
@@ -650,6 +676,61 @@ export default function KalibriDashboard() {
     return rows;
   }, [db, filteredGeos, cagrStart, cagrEnd, revType, tiers, losTiers, tw, periods, cagrSortKey, cagrSortDir]);
 
+  // ── Supply rows ────────────────────────────────────────────────────────────
+  const supplyRows = useMemo(() => {
+    if (!supplyData.length) return [];
+
+    let filtered = supplyData;
+    if (supplyMkt !== "All") {
+      filtered = filtered.filter(r => r.Market === supplyMkt);
+    }
+
+    // Tier filter using existing tiers state
+    const tierFilter = tiers.includes("All Tier") ? null : tiers.map(t => t.toLowerCase());
+    if (tierFilter) {
+      filtered = filtered.filter(r => tierFilter.some(t => r.Tier.toLowerCase().includes(t.replace(" tier",""))));
+    }
+
+    // Group by geo
+    const geoMap = {};
+    for (const r of filtered) {
+      const geo = supplyGeoLevel === "market" ? r.Market : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
+      const label = supplyGeoLevel === "market" ? r.Market : (r.Submarket || r.Market);
+      const mkt = r.Market;
+      if (!geoMap[geo]) geoMap[geo] = { geo, label, mkt, rooms:0, props:0, tiers:{} };
+      const entry = geoMap[geo];
+      entry.rooms += r.Rooms;
+      entry.props += 1;
+      const t = r.Tier;
+      if (!entry.tiers[t]) entry.tiers[t] = { rooms:0, props:0 };
+      entry.tiers[t].rooms += r.Rooms;
+      entry.tiers[t].props += 1;
+    }
+
+    return Object.values(geoMap).sort((a, b) => b.rooms - a.rooms);
+  }, [supplyData, supplyGeoLevel, supplyMkt, tiers]);
+
+  const supplyBrands = useMemo(() => {
+    if (!expandedGeo || !supplyData.length) return [];
+    let filtered = supplyData.filter(r => {
+      const geo = supplyGeoLevel === "market" ? r.Market : (r.Submarket ? `${r.Market}::${r.Submarket}` : r.Market);
+      return geo === expandedGeo;
+    });
+    if (expandedTier !== "All Tier") {
+      filtered = filtered.filter(r => r.Tier === expandedTier);
+    }
+    // Group by Brand
+    const brandMap = {};
+    for (const r of filtered) {
+      const key = r.Brand || "Independent";
+      if (!brandMap[key]) brandMap[key] = { brand: key, company: r.Company, tier: r.Tier, chainClass: r["Chain Class"], rooms:0, props:0, properties:[] };
+      brandMap[key].rooms += r.Rooms;
+      brandMap[key].props += 1;
+      brandMap[key].properties.push(r.Property);
+    }
+    return Object.values(brandMap).sort((a, b) => b.rooms - a.rooms);
+  }, [expandedGeo, expandedTier, supplyData, supplyGeoLevel]);
+
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sel = {
     background:"#1e293b", border:"1px solid #334155", color:"#f1f5f9",
@@ -737,12 +818,14 @@ export default function KalibriDashboard() {
       <div style={{ padding:"12px 28px", background:"#111827", borderBottom:"1px solid #1e293b", display:"flex", flexWrap:"wrap", gap:14, alignItems:"flex-end" }}>
 
         {/* Revenue Type */}
+        {tab !== "supply" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Revenue Type</label>
           <div style={{ display:"flex", gap:2 }}>
             {REV_TYPES.map(rt => <Btn key={rt} active={revType===rt} onClick={() => setRevType(rt)} color="#3b82f6">{rt}</Btn>)}
           </div>
         </div>
+        )}
 
         {/* Hotel Class */}
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
@@ -765,6 +848,7 @@ export default function KalibriDashboard() {
         </div>
 
         {/* Length of Stay */}
+        {tab !== "supply" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Length of Stay</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -783,9 +867,10 @@ export default function KalibriDashboard() {
             })}
           </div>
         </div>
+        )}
 
         {/* Aggregation disclaimer */}
-        {(tiers.length > 1 || losTiers.length > 1) && (
+        {tab !== "supply" && (tiers.length > 1 || losTiers.length > 1) && (
           <div style={{ display:"flex", alignItems:"flex-start", gap:6, background:"#1e293b", border:"1px solid #f59e0b55", borderRadius:6, padding:"6px 10px", maxWidth:420 }}>
             <span style={{ color:"#f59e0b", fontSize:13, lineHeight:1 }}>⚠</span>
             <span style={{ color:"#94a3b8", fontSize:11, lineHeight:1.4 }}>
@@ -795,6 +880,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Time Window */}
+        {tab !== "supply" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Time Window</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -803,8 +889,10 @@ export default function KalibriDashboard() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Geography */}
+        {tab !== "supply" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Geography</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -812,9 +900,10 @@ export default function KalibriDashboard() {
             <Btn active={geoLevel==="submarket"} onClick={() => setGeoLevel("submarket")} color="#f97316">Submarkets</Btn>
           </div>
         </div>
+        )}
 
         {/* Market filter */}
-        {geoLevel === "submarket" && (
+        {tab !== "supply" && geoLevel === "submarket" && (
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
             <label style={label9}>Market</label>
             <select value={mktFilter} onChange={e => setMktFilter(e.target.value)} style={{ ...sel, minWidth:150 }}>
@@ -824,7 +913,30 @@ export default function KalibriDashboard() {
           </div>
         )}
 
+        {/* Supply tab geography controls */}
+        {tab === "supply" && (
+          <>
+            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+              <label style={label9}>Geography</label>
+              <div style={{ display:"flex", gap:2 }}>
+                <Btn active={supplyGeoLevel==="market"}    onClick={() => { setSupplyGeoLevel("market"); setSupplyMkt("All"); setExpandedGeo(null); }} color="#f97316">Markets</Btn>
+                <Btn active={supplyGeoLevel==="submarket"} onClick={() => { setSupplyGeoLevel("submarket"); setExpandedGeo(null); }} color="#f97316">Submarkets</Btn>
+              </div>
+            </div>
+            {supplyGeoLevel === "submarket" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Market</label>
+                <select value={supplyMkt} onChange={e => setSupplyMkt(e.target.value)} style={{ ...sel, minWidth:150 }}>
+                  <option value="All">All Markets</option>
+                  {markets.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Period */}
+        {tab !== "supply" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Period</label>
           <select value={period1} onChange={e => setPeriod1(e.target.value)} style={{ ...sel, minWidth:120, ...(isForecast(period1) ? { border:"1px solid #f59e0b55", color:"#fbbf24" } : {}) }}>
@@ -833,6 +945,7 @@ export default function KalibriDashboard() {
             ))}
           </select>
         </div>
+        )}
 
         {/* Compare To (overview) */}
         {tab === "overview" && (
@@ -848,6 +961,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Include Forecast */}
+        {tab !== "supply" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Forecast</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -855,6 +969,7 @@ export default function KalibriDashboard() {
             <Btn active={!showForecast} onClick={() => setShowForecast(false)}>Hide</Btn>
           </div>
         </div>
+        )}
 
         {/* Sort By (overview) */}
         {tab === "overview" && (
@@ -899,7 +1014,7 @@ export default function KalibriDashboard() {
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Analysis</label>
           <div style={{ display:"flex", gap:2 }}>
-            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"]].map(([id, lbl]) => (
+            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"],["supply","Supply"]].map(([id, lbl]) => (
               <Btn key={id} active={tab===id} onClick={() => setTab(id)} color="#6366f1">{lbl}</Btn>
             ))}
           </div>
@@ -931,85 +1046,112 @@ export default function KalibriDashboard() {
               {isForecast(period1) && <span style={{ color:"#f59e0b", marginLeft:4, fontSize:10 }}>◆ FORECAST PERIOD</span>}
             </div>
 
-            {/* Table */}
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:12, tableLayout:"auto" }}>
-                <thead>
-                  {/* Group banner row */}
-                  <tr style={{ background:"#070f1e" }}>
-                    <th colSpan={geoColSpan} style={{ background:"#070f1e", padding:"4px 0" }}/>
-                    <th colSpan={1} style={{
-                      background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6",
-                      textTransform:"uppercase", letterSpacing:1, textAlign:"center",
-                      borderTop:"2px solid #3b82f655", borderLeft:"1px solid #0d1526",
-                    }}>Supply</th>
-                    <th colSpan={perfColSpan} style={{
-                      background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981",
-                      textTransform:"uppercase", letterSpacing:1, textAlign:"center",
-                      borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526",
-                    }}>
-                      <div>Performance</div>
-                      <div style={{ marginTop:2, fontWeight:400, fontSize:8, fontFamily:"'IBM Plex Mono',monospace", textTransform:"none", letterSpacing:0 }}>
-                        <span style={{ color:"#3b82f6" }}>{periodLabel(period1)}</span>
-                        <span style={{ color:"#334155", margin:"0 4px" }}>vs</span>
-                        <span style={{ color:"#64748b" }}>{ovStart ? periodLabel(ovStart) : "prior year"}</span>
-                      </div>
-                    </th>
-                  </tr>
-                  {/* Column labels row */}
-                  <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
-                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W, position:"sticky", left:0, background:"#0a1628", zIndex:3, borderRight:"1px solid #1e293b" }}>
-                      {geoLevel === "submarket" ? "Submarket" : "Market"}
-                    </th>
-                    {geoLevel === "submarket" && (
-                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W, position:"sticky", left:MKT_W+2, background:"#0a1628", zIndex:3, borderRight:"1px solid #1e293b" }}>Market</th>
+            {/* Table — two-panel frozen pane */}
+            <div style={{ display:"flex", overflow:"hidden" }}>
+
+              {/* LEFT PANEL — fixed, no scroll */}
+              <div style={{ flexShrink:0 }}>
+                <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:"#070f1e" }}>
+                      <th colSpan={geoLevel === "submarket" ? 3 : 2} style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655" }}>SUPPLY</th>
+                    </tr>
+                    <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
+                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W }}>
+                        {geoLevel === "submarket" ? "Submarket" : "Market"}
+                      </th>
+                      {geoLevel === "submarket" && (
+                        <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W }}>Market</th>
+                      )}
+                      <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", width:90, minWidth:90, borderLeft:"1px solid #1e293b" }}>Rooms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overviewRows.length === 0 && (
+                      <tr><td colSpan={geoLevel === "submarket" ? 3 : 2} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data</td></tr>
                     )}
-                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", minWidth:80, position:"sticky", left:ROOM_LEFT, background:"#0a1628", zIndex:3, borderRight:"2px solid #1e293b" }}>Rooms</th>
-                    {METRICS.map(m => m.yoyKey ? [
-                      <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>{m.label}</th>,
-                      <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>{ovStart ? "% Chg" : "YoY"}</th>,
-                    ] : (
-                      <th key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:60 }}>{m.label}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {overviewRows.length === 0 && (
-                    <tr><td colSpan={20} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
-                  )}
-                  {overviewRows.map((row, i) => {
-                    const bg = i % 2 === 0 ? "#111827" : "#0f172a";
-                    return (
-                      <tr key={row.geo}
-                        style={{ borderBottom:"1px solid #0d1526", background:bg }}
-                        onMouseEnter={e => e.currentTarget.style.background="#1e293b"}
-                        onMouseLeave={e => e.currentTarget.style.background=bg}>
-                        <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:0, background:bg, zIndex:2, borderRight:"1px solid #1e293b" }}>
-                          {row.label}
-                        </td>
-                        {geoLevel === "submarket" && (
-                          <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W, overflow:"hidden", textOverflow:"ellipsis", position:"sticky", left:MKT_W+2, background:bg, zIndex:2, borderRight:"1px solid #1e293b" }}>{row.mkt}</td>
-                        )}
-                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", whiteSpace:"nowrap", minWidth:80, position:"sticky", left:ROOM_LEFT, background:bg, zIndex:2, borderRight:"2px solid #1e293b" }}>
-                          {(() => { const s = getSupply(row.geo); return s ? s.rooms.toLocaleString() : "—"; })()}
-                        </td>
-                        {METRICS.map(m => m.yoyKey ? [
-                          <td key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#cbd5e1", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
-                            {m.valFmt(row.m[m.key])}
-                          </td>,
-                          <td key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:chgColor(row.m[m.yoyKey], m.isOcc), fontWeight:600, whiteSpace:"nowrap" }}>
-                            {m.isOcc ? fmt.pp(row.m[m.yoyKey]) : fmt.pct(row.m[m.yoyKey])}
-                          </td>,
-                        ] : (
-                          <td key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#94a3b8", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
-                            {m.valFmt(row.m[m.key])}
+                    {overviewRows.map((row, i) => {
+                      const bg = i % 2 === 0 ? "#111827" : "#0f172a";
+                      const isHovered = hoveredRow === row.geo;
+                      return (
+                        <tr key={row.geo}
+                          style={{ borderBottom:"1px solid #0d1526", background: isHovered ? "#1e293b" : bg }}
+                          onMouseEnter={() => setHoveredRow(row.geo)}
+                          onMouseLeave={() => setHoveredRow(null)}>
+                          <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W, overflow:"hidden", textOverflow:"ellipsis" }}>
+                            {row.label}
                           </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          {geoLevel === "submarket" && (
+                            <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W, overflow:"hidden", textOverflow:"ellipsis" }}>{row.mkt}</td>
+                          )}
+                          <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", whiteSpace:"nowrap", width:90, minWidth:90, borderLeft:"1px solid #1e293b" }}>
+                            {(() => { const s = getSupply(row.geo); return s ? s.rooms.toLocaleString() : "—"; })()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* RIGHT PANEL — scrollable performance columns */}
+              <div style={{ flex:1, overflowX:"auto" }}>
+                <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:"#070f1e" }}>
+                      <th colSpan={perfColSpan} style={{
+                        background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981",
+                        textTransform:"uppercase", letterSpacing:1, textAlign:"center",
+                        borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526",
+                      }}>
+                        <div>PERFORMANCE</div>
+                        <div style={{ marginTop:2, fontWeight:400, fontSize:8, fontFamily:"'IBM Plex Mono',monospace", textTransform:"none", letterSpacing:0 }}>
+                          <span style={{ color:"#3b82f6" }}>{periodLabel(period1)}</span>
+                          <span style={{ color:"#334155", margin:"0 4px" }}>vs</span>
+                          <span style={{ color:"#64748b" }}>{ovStart ? periodLabel(ovStart) : "prior year"}</span>
+                        </div>
+                      </th>
+                    </tr>
+                    <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
+                      {METRICS.map(m => m.yoyKey ? [
+                        <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>{m.label}</th>,
+                        <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>{ovStart ? "% Chg" : "YoY"}</th>,
+                      ] : (
+                        <th key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:60 }}>{m.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overviewRows.length === 0 && (
+                      <tr><td colSpan={perfColSpan} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
+                    )}
+                    {overviewRows.map((row, i) => {
+                      const bg = i % 2 === 0 ? "#111827" : "#0f172a";
+                      const isHovered = hoveredRow === row.geo;
+                      return (
+                        <tr key={row.geo}
+                          style={{ borderBottom:"1px solid #0d1526", background: isHovered ? "#1e293b" : bg }}
+                          onMouseEnter={() => setHoveredRow(row.geo)}
+                          onMouseLeave={() => setHoveredRow(null)}>
+                          {METRICS.map(m => m.yoyKey ? [
+                            <td key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#cbd5e1", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                              {m.valFmt(row.m[m.key])}
+                            </td>,
+                            <td key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:chgColor(row.m[m.yoyKey], m.isOcc), fontWeight:600, whiteSpace:"nowrap" }}>
+                              {m.isOcc ? fmt.pp(row.m[m.yoyKey]) : fmt.pct(row.m[m.yoyKey])}
+                            </td>,
+                          ] : (
+                            <td key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#94a3b8", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                              {m.valFmt(row.m[m.key])}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
             </div>
           </div>
         )}
@@ -1212,6 +1354,127 @@ export default function KalibriDashboard() {
                         <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#60a5fa" }}>{fmt.dollar(row.me_revpar)}</td>
                         <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:chgColor(row.revpar_cagr), fontWeight:700, fontSize:13 }}>{fmt.pct(row.revpar_cagr)}</td>
                       </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ════ SUPPLY ════ */}
+        {tab === "supply" && (
+          <div>
+            <div style={{ fontSize:10, color:"#334155", marginBottom:10, fontFamily:"'IBM Plex Mono',monospace", display:"flex", gap:6, alignItems:"center" }}>
+              <span style={{ color:"#60a5fa", fontWeight:600 }}>{supplyRows.length} {supplyGeoLevel === "market" ? "markets" : "submarkets"}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span style={{ color:"#10b981" }}>{tiers[0] === "All Tier" ? "All Classes" : tiers.map(t => t.replace(" Tier","")).join(" + ")}</span>
+              <span style={{ color:"#1a2540" }}>·</span>
+              <span style={{ color:"#475569" }}>Click a row to drill into brands</span>
+            </div>
+
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:"#070f1e" }}>
+                    <th colSpan={supplyGeoLevel === "submarket" ? 2 : 1} style={{ background:"#070f1e", padding:"4px 0" }}/>
+                    <th colSpan={4} style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655", borderLeft:"1px solid #0d1526" }}>
+                      Supply — Active Properties
+                    </th>
+                  </tr>
+                  <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
+                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:160 }}>
+                      {supplyGeoLevel === "submarket" ? "Submarket" : "Market"}
+                    </th>
+                    {supplyGeoLevel === "submarket" && (
+                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:100 }}>Market</th>
+                    )}
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>Total Rooms (Props)</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#f87171", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:100 }}>Lower Tier</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#fbbf24", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:100 }}>Mid Tier</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#34d399", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:100 }}>Upper Tier</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supplyRows.map((row, i) => {
+                    const bg = i % 2 === 0 ? "#111827" : "#0f172a";
+                    const isExp = expandedGeo === row.geo;
+                    const lower = row.tiers["Lower Tier"] || { rooms:0, props:0 };
+                    const mid   = row.tiers["Mid Tier"]   || { rooms:0, props:0 };
+                    const upper = row.tiers["Upper Tier"] || { rooms:0, props:0 };
+                    return (
+                      <React.Fragment key={row.geo}>
+                        <tr
+                          style={{ borderBottom:"1px solid #0d1526", background: isExp ? "#1e3a5f" : bg, cursor:"pointer" }}
+                          onClick={() => { setExpandedGeo(isExp ? null : row.geo); setExpandedTier("All Tier"); }}
+                          onMouseEnter={e => { if (!isExp) e.currentTarget.style.background="#1e293b"; }}
+                          onMouseLeave={e => { if (!isExp) e.currentTarget.style.background=bg; }}>
+                          <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap" }}>
+                            <span style={{ marginRight:6, color: isExp ? "#f59e0b" : "#475569", fontSize:10 }}>{isExp ? "▼" : "▶"}</span>
+                            {row.label}
+                          </td>
+                          {supplyGeoLevel === "submarket" && (
+                            <td style={{ padding:"6px 10px", color:"#475569", fontSize:10 }}>{row.mkt}</td>
+                          )}
+                          <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", fontWeight:600, borderLeft:"1px solid #0d1526" }}>
+                            {row.rooms.toLocaleString()} <span style={{ color:"#334155", fontSize:9 }}>/ {row.props} props</span>
+                          </td>
+                          <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#f87171", borderLeft:"1px solid #0d1526" }}>
+                            {lower.rooms > 0 ? <>{lower.rooms.toLocaleString()} <span style={{ color:"#334155", fontSize:9 }}>/ {lower.props}</span></> : "—"}
+                          </td>
+                          <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#fbbf24", borderLeft:"1px solid #0d1526" }}>
+                            {mid.rooms > 0 ? <>{mid.rooms.toLocaleString()} <span style={{ color:"#334155", fontSize:9 }}>/ {mid.props}</span></> : "—"}
+                          </td>
+                          <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#34d399", borderLeft:"1px solid #0d1526" }}>
+                            {upper.rooms > 0 ? <>{upper.rooms.toLocaleString()} <span style={{ color:"#334155", fontSize:9 }}>/ {upper.props}</span></> : "—"}
+                          </td>
+                        </tr>
+                        {isExp && (
+                          <tr key={row.geo+"_exp"}>
+                            <td colSpan={supplyGeoLevel === "submarket" ? 6 : 5} style={{ padding:0, background:"#0a1628", borderBottom:"2px solid #334155" }}>
+                              <div style={{ padding:"12px 20px" }}>
+                                <div style={{ display:"flex", gap:6, marginBottom:10, alignItems:"center" }}>
+                                  <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1 }}>Filter Class</span>
+                                  {["All Tier","Lower Tier","Mid Tier","Upper Tier"].map(t => (
+                                    <Btn key={t} active={expandedTier===t} onClick={e => { e.stopPropagation(); setExpandedTier(t); }}
+                                      color={t==="Lower Tier"?"#ef4444":t==="Mid Tier"?"#f59e0b":t==="Upper Tier"?"#10b981":"#3b82f6"}>
+                                      {t.replace(" Tier","") || "All"}
+                                    </Btn>
+                                  ))}
+                                  <span style={{ marginLeft:8, fontSize:10, color:"#475569" }}>{supplyBrands.length} brands · {supplyBrands.reduce((s,b)=>s+b.rooms,0).toLocaleString()} rooms</span>
+                                </div>
+                                <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:11 }}>
+                                  <thead>
+                                    <tr style={{ background:"#070f1e" }}>
+                                      <th style={{ padding:"5px 8px", textAlign:"left", fontSize:9, color:"#3b82f6", fontWeight:600, minWidth:160 }}>Brand</th>
+                                      <th style={{ padding:"5px 8px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:140 }}>Parent Company</th>
+                                      <th style={{ padding:"5px 8px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:90 }}>Class</th>
+                                      <th style={{ padding:"5px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, minWidth:70 }}>Rooms</th>
+                                      <th style={{ padding:"5px 8px", textAlign:"right", fontSize:9, color:"#475569", fontWeight:600, minWidth:70 }}>Properties</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {supplyBrands.map((b, j) => (
+                                      <tr key={b.brand+j} style={{ background: j%2===0 ? "#0f172a" : "#111827" }}>
+                                        <td style={{ padding:"5px 8px", color:"#f1f5f9", fontWeight:500 }}>{b.brand}</td>
+                                        <td style={{ padding:"5px 8px", color:"#64748b", fontSize:10 }}>{b.company}</td>
+                                        <td style={{ padding:"5px 8px" }}>
+                                          <span style={{ fontSize:9, padding:"1px 6px", borderRadius:3, fontWeight:600,
+                                            background: b.tier==="Upper Tier"?"#34d39922":b.tier==="Mid Tier"?"#fbbf2422":"#f8717122",
+                                            color:      b.tier==="Upper Tier"?"#34d399"  :b.tier==="Mid Tier"?"#fbbf24"  :"#f87171"
+                                          }}>{b.tier.replace(" Tier","")}</span>
+                                        </td>
+                                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#60a5fa" }}>{b.rooms.toLocaleString()}</td>
+                                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#94a3b8" }}>{b.props}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
