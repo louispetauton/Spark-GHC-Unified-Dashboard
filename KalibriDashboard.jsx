@@ -614,6 +614,7 @@ export default function KalibriDashboard() {
   const [mapCompanies,  setMapCompanies] = useState([]);
   const [mapBrands,     setMapBrands]    = useState([]);
   const [mapExtStay,    setMapExtStay]   = useState(false);
+  const [drillMkt,      setDrillMkt]     = useState(null); // focused market in submarket drill-down
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
@@ -1184,8 +1185,8 @@ export default function KalibriDashboard() {
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Geography</label>
           <div style={{ display:"flex", gap:2 }}>
-            <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market"); setSelectedGeos([]); setExpandedGeo(null); }} color="#f97316">Markets</Btn>
-            <Btn active={geoLevel==="submarket"} onClick={() => { setGeoLevel("submarket"); setSelectedGeos([]); setExpandedGeo(null); }} color="#f97316">Submarkets</Btn>
+            <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market"); setSelectedGeos([]); setDrillMkt(null); setExpandedGeo(null); }} color="#f97316">Markets</Btn>
+            <Btn active={geoLevel==="submarket"} onClick={() => { setGeoLevel("submarket"); setSelectedGeos([]); setDrillMkt(null); setExpandedGeo(null); }} color="#f97316">Submarkets</Btn>
           </div>
         </div>
 
@@ -1804,39 +1805,70 @@ export default function KalibriDashboard() {
                 </div>
               </div>
 
-              {/* Market / Submarket pills */}
-              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, width:280 }}>
-                <label style={label9}>
-                  {geoLevel === "market" ? "Market" : "Submarket"}
-                  {" "}<span style={{ color:"#475569" }}>· {selectedGeos.length > 0 ? `${selectedGeos.length} selected` : "all"}</span>
-                  {selectedGeos.length > 0 && <span onClick={() => setSelectedGeos([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
-                </label>
-                <div style={PILL_ROW}>
-                  {geoLevel === "market"
-                    ? OUR_MARKETS.map(m => (
+              {/* Market / Submarket pills — two-step drill-down */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, width:320 }}>
+                {geoLevel === "market" ? (
+                  <>
+                    <label style={label9}>
+                      Market
+                      {" "}<span style={{ color:"#475569" }}>· {selectedGeos.length > 0 ? `${selectedGeos.length} selected` : "all"}</span>
+                      {selectedGeos.length > 0 && <span onClick={() => setSelectedGeos([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
+                    </label>
+                    <div style={PILL_ROW}>
+                      {OUR_MARKETS.map(m => (
                         <Btn key={m} active={selectedGeos.includes(m)} onClick={() => toggleGeo(m)}
                           color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>
                           {m.replace(", OH","")}
                         </Btn>
-                      ))
-                    : OUR_MARKETS.map(m => (
-                        <React.Fragment key={m}>
-                          <span style={{ color:"#475569", fontSize:8, fontWeight:700, textTransform:"uppercase", padding:"0 5px", alignSelf:"center", flexShrink:0, letterSpacing:1, borderLeft:"1px solid #1e293b", marginLeft:2 }}>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Step 1 — pick a market */}
+                    <label style={label9}>
+                      Market
+                      {selectedGeos.length > 0 && <span style={{ color:"#475569" }}> · {selectedGeos.length} submarket{selectedGeos.length > 1 ? "s" : ""} selected</span>}
+                      {selectedGeos.length > 0 && <span onClick={() => { setSelectedGeos([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
+                    </label>
+                    <div style={PILL_ROW}>
+                      {OUR_MARKETS.map(m => {
+                        const hasSel = selectedGeos.some(g => g.startsWith(m + "::"));
+                        return (
+                          <Btn key={m}
+                            active={drillMkt === m}
+                            onClick={() => setDrillMkt(drillMkt === m ? null : m)}
+                            color="#f97316"
+                            style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0, outline: hasSel ? "1px solid #f97316" : "none" }}>
                             {m.replace(", OH","")}
-                          </span>
-                          {(SUBMARKET_BY_MKT[m] || []).map(sub => {
-                            const gkey = `${m}::${sub}`;
+                          </Btn>
+                        );
+                      })}
+                    </div>
+                    {/* Step 2 — pick submarkets within focused market */}
+                    {drillMkt && (
+                      <>
+                        <label style={{ ...label9, marginTop:2 }}>
+                          {drillMkt.replace(", OH","")} Submarkets
+                          {selectedGeos.filter(g => g.startsWith(drillMkt + "::")).length > 0 && (
+                            <span style={{ color:"#475569" }}> · {selectedGeos.filter(g => g.startsWith(drillMkt + "::")).length} selected</span>
+                          )}
+                        </label>
+                        <div style={PILL_ROW}>
+                          {(SUBMARKET_BY_MKT[drillMkt] || []).map(sub => {
+                            const gkey = `${drillMkt}::${sub}`;
                             return (
                               <Btn key={gkey} active={selectedGeos.includes(gkey)} onClick={() => toggleGeo(gkey)}
-                                color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>
+                                color="#fb923c" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>
                                 {sub}
                               </Btn>
                             );
                           })}
-                        </React.Fragment>
-                      ))
-                  }
-                </div>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Company pills (pins mode only) */}
