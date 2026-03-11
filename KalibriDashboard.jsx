@@ -602,9 +602,11 @@ export default function KalibriDashboard() {
   // map tab
   const [mapReady,      setMapReady]     = useState(false);
   const [mapMode,       setMapMode]      = useState("bubbles");   // "bubbles" | "pins"
-  const [mapCompanies,  setMapCompanies] = useState([]);          // selected companies (empty = all)
-  const [mapBrands,     setMapBrands]    = useState([]);          // selected brand names (empty = all)
+  const [mapCompanies,  setMapCompanies] = useState([]);
+  const [mapBrands,     setMapBrands]    = useState([]);
   const [mapExtStay,    setMapExtStay]   = useState(false);
+  const [mapMkt,        setMapMkt]       = useState("All");
+  const [mapSubmarket,  setMapSubmarket] = useState("All");
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
@@ -694,7 +696,8 @@ export default function KalibriDashboard() {
         if (mapExtStay)               filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
         if (mapCompanies.length > 0)  filtered = filtered.filter(r => mapCompanies.includes(r.Company));
         if (mapBrands.length > 0)     filtered = filtered.filter(r => mapBrands.includes(r.Brand));
-        if (supplyMkt !== "All")     filtered = filtered.filter(r => r.Market === supplyMkt);
+        if (mapMkt !== "All")         filtered = filtered.filter(r => r.Market === mapMkt);
+        if (mapSubmarket !== "All")   filtered = filtered.filter(r => r.Submarket === mapSubmarket);
 
         filtered.forEach(r => {
           const color = TIER_PIN_COLOR[r.Tier] || "#64748b";
@@ -805,7 +808,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapCompanies, mapBrands, mapExtStay]);
+  }, [tab, mapReady, supplyData, supplyGeoLevel, supplyMkt, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, mapMkt, mapSubmarket]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
@@ -1171,8 +1174,8 @@ export default function KalibriDashboard() {
           </div>
         )}
 
-        {/* Supply/Map tab geography controls */}
-        {(tab === "supply" || tab === "map") && (
+        {/* Supply/Map tab geography controls — hidden for map pins mode */}
+        {(tab === "supply" || (tab === "map" && mapMode === "bubbles")) && (
           <>
             <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
               <label style={label9}>Geography</label>
@@ -1790,6 +1793,7 @@ export default function KalibriDashboard() {
             .reduce((s, r) => { s.add(r.Brand); return s; }, new Set());
           const visibleBrands = [...brandsForCompany].sort();
           const chipBox = { display:"flex", gap:3, flexWrap:"wrap", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, padding:"6px 8px", maxHeight:76, overflowY:"auto", marginTop:3 };
+          const submarkets = mapMkt === "All" ? [] : [...new Set(supplyData.filter(r => r.Market === mapMkt && r.Submarket).map(r => r.Submarket))].sort();
           return (
           <div>
             {/* ── Controls row ── */}
@@ -1804,6 +1808,28 @@ export default function KalibriDashboard() {
                   {mapMode === "pins" && <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Ext. Stay</Btn>}
                 </div>
               </div>
+
+              {mapMode === "pins" && (<>
+                {/* Market */}
+                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                  <label style={label9}>Market</label>
+                  <select value={mapMkt} onChange={e => { setMapMkt(e.target.value); setMapSubmarket("All"); }} style={{ ...sel, minWidth:160 }}>
+                    <option value="All">All Markets</option>
+                    {markets.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                {/* Submarket */}
+                {mapMkt !== "All" && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                    <label style={label9}>Submarket</label>
+                    <select value={mapSubmarket} onChange={e => setMapSubmarket(e.target.value)} style={{ ...sel, minWidth:180 }}>
+                      <option value="All">All Submarkets</option>
+                      {submarkets.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+              </>)}
 
               {mapMode === "pins" && (<>
                 {/* Company scrollable box */}
