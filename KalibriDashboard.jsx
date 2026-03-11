@@ -244,6 +244,16 @@ function computeTrailing(lookup, endPeriod, geoKey, revType, tiers, losTiers, tw
 }
 // ───────────────────────────────────────────────────────────────────────────
 
+function downloadCSV(filename, rows, columns) {
+  const escape = v => (v == null ? "" : String(v).includes(",") || String(v).includes('"') ? `"${String(v).replace(/"/g,'""')}"` : String(v));
+  const header = columns.map(c => c.label).join(",");
+  const body   = rows.map(r => columns.map(c => escape(c.get(r))).join(",")).join("\n");
+  const blob   = new Blob([header + "\n" + body], { type:"text/csv" });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 function calcCAGR(v1, v2, years) {
   if (!v1 || !v2 || years <= 0 || v1 <= 0) return null;
   return Math.pow(v2 / v1, 1 / years) - 1;
@@ -1058,6 +1068,26 @@ export default function KalibriDashboard() {
               <span style={{ color:"#1a2540" }}>·</span>
               <span style={{ color:"#334155" }}>sorted by {METRICS.find(m => m.key===sortKey || m.yoyKey===sortKey)?.label}{sortKey.includes("_yoy") ? " YoY" : ""} {sortDir === "desc" ? "↓" : "↑"}</span>
               {isForecast(period1) && <span style={{ color:"#f59e0b", marginLeft:4, fontSize:10 }}>◆ FORECAST PERIOD</span>}
+              <span style={{ flex:1 }}/>
+              <button onClick={() => {
+                const yoyLabel = ovStart ? `vs ${periodLabel(ovStart)}` : "YoY";
+                const cols = [
+                  ...(geoLevel === "submarket" ? [{ label:"Market", get: r => r.mkt }] : []),
+                  { label: geoLevel === "submarket" ? "Submarket" : "Market", get: r => r.label },
+                  { label:"Rooms",            get: r => getSupplyInfo(r.geo)?.rooms ?? "" },
+                  { label:"Occ",              get: r => r.m.occ     != null ? (r.m.occ * 100).toFixed(1)+"%" : "" },
+                  { label:`Occ ${yoyLabel}`,  get: r => r.m.occ_yoy != null ? (r.m.occ_yoy * 100).toFixed(1)+"pp" : "" },
+                  { label:"ADR",              get: r => r.m.adr     != null ? r.m.adr.toFixed(2) : "" },
+                  { label:`ADR ${yoyLabel}`,  get: r => r.m.adr_yoy != null ? (r.m.adr_yoy * 100).toFixed(1)+"%" : "" },
+                  { label:"RevPAR",           get: r => r.m.revpar     != null ? r.m.revpar.toFixed(2) : "" },
+                  { label:`RevPAR ${yoyLabel}`,get: r => r.m.revpar_yoy != null ? (r.m.revpar_yoy * 100).toFixed(1)+"%" : "" },
+                  { label:"Booking Cost/RN",  get: r => r.m.booking_cost     != null ? r.m.booking_cost.toFixed(2) : "" },
+                  { label:`Booking Cost ${yoyLabel}`, get: r => r.m.booking_cost_yoy != null ? (r.m.booking_cost_yoy * 100).toFixed(1)+"%" : "" },
+                  { label:"ALOS",             get: r => r.m.alos     != null ? r.m.alos.toFixed(2) : "" },
+                  { label:`ALOS ${yoyLabel}`, get: r => r.m.alos_yoy != null ? (r.m.alos_yoy * 100).toFixed(1)+"%" : "" },
+                ];
+                downloadCSV(`kalibri_overview_${period1}.csv`, overviewRows, cols);
+              }} style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155" }}>↓ Export</button>
             </div>
 
             {/* Table — two-panel frozen pane */}
@@ -1274,6 +1304,25 @@ export default function KalibriDashboard() {
                 <select value={cagrChartMetric} onChange={e => setCagrChartMetric(e.target.value)} style={{ ...sel, minWidth:140 }}>
                   {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                 </select>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>&nbsp;</label>
+                <button onClick={() => {
+                  const cols = [
+                    ...(geoLevel === "submarket" ? [{ label:"Market", get: r => r.mkt }] : []),
+                    { label: geoLevel === "submarket" ? "Submarket" : "Market", get: r => r.label },
+                    { label:`Occ (${periodLabel(cagrStart)})`,    get: r => r.ms_occ    != null ? (r.ms_occ * 100).toFixed(1)+"%" : "" },
+                    { label:`Occ (${periodLabel(cagrEnd)})`,      get: r => r.me_occ    != null ? (r.me_occ * 100).toFixed(1)+"%" : "" },
+                    { label:"Occ Delta (pp)",                     get: r => r.occ_delta != null ? (r.occ_delta * 100).toFixed(1) : "" },
+                    { label:`ADR (${periodLabel(cagrStart)})`,    get: r => r.ms_adr    != null ? r.ms_adr.toFixed(2) : "" },
+                    { label:`ADR (${periodLabel(cagrEnd)})`,      get: r => r.me_adr    != null ? r.me_adr.toFixed(2) : "" },
+                    { label:"ADR CAGR",                           get: r => r.adr_cagr  != null ? (r.adr_cagr * 100).toFixed(2)+"%" : "" },
+                    { label:`RevPAR (${periodLabel(cagrStart)})`, get: r => r.ms_revpar != null ? r.ms_revpar.toFixed(2) : "" },
+                    { label:`RevPAR (${periodLabel(cagrEnd)})`,   get: r => r.me_revpar != null ? r.me_revpar.toFixed(2) : "" },
+                    { label:"RevPAR CAGR",                        get: r => r.revpar_cagr != null ? (r.revpar_cagr * 100).toFixed(2)+"%" : "" },
+                  ];
+                  downloadCSV(`kalibri_cagr_${cagrStart}_to_${cagrEnd}.csv`, cagrRows, cols);
+                }} style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155" }}>↓ Export</button>
               </div>
             </div>
 
