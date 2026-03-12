@@ -1787,7 +1787,7 @@ export default function KalibriDashboard() {
 
             {/* CAGR table — grouped columns: Occupancy / ADR / RevPAR */}
             <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <table style={{ width:"100%", borderCollapse:"separate", borderSpacing:0, fontSize:12 }}>
                 <thead>
                   <tr style={{ background:"#070f1e" }}>
                     <th colSpan={geoColSpan} style={{ background:"#070f1e", padding:"4px 0" }}/>
@@ -1844,7 +1844,7 @@ export default function KalibriDashboard() {
                         {/* RevPAR */}
                         <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#64748b", borderLeft:"1px solid #0d1526" }}>{fmt.dollar(row.ms_revpar)}</td>
                         <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:"#60a5fa" }}>{fmt.dollar(row.me_revpar)}</td>
-                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:chgColor(row.revpar_cagr), fontWeight:700, fontSize:13 }}>{fmt.pct(row.revpar_cagr)}</td>
+                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", color:chgColor(row.revpar_cagr), fontWeight:600 }}>{fmt.pct(row.revpar_cagr)}</td>
                       </tr>
                     );
                   })}
@@ -2059,7 +2059,7 @@ export default function KalibriDashboard() {
                 <div style={{ display:"flex", gap:2 }}>
                   <Btn active={mapMode==="bubbles"} onClick={() => setMapMode("bubbles")} color="#6366f1">Bubbles</Btn>
                   <Btn active={mapMode==="pins"}    onClick={() => setMapMode("pins")} color="#6366f1">Pins</Btn>
-                  {mapMode === "pins" && <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#6366f1">Ext. Stay</Btn>}
+                  {mapMode === "pins" && <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Ext. Stay</Btn>}
                 </div>
               </div>
 
