@@ -2055,7 +2055,7 @@ export default function KalibriDashboard() {
         return (
           <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
             {/* ── Single-row filter panel ── */}
-            <div style={{ display:"flex", gap:10, padding:"6px 16px", alignItems:"flex-start", overflowX:"auto", overflowY:"hidden", flexWrap:"nowrap", borderBottom:"1px solid #1e293b", flexShrink:0 }}>
+            <div style={{ display:"flex", gap:10, padding:"6px 16px", alignItems:"flex-start", overflowX:"auto", flexWrap:"nowrap", borderBottom:"1px solid #1e293b", flexShrink:0, position:"relative", zIndex:100 }}>
 
               {/* View + Ext Stay */}
               <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
