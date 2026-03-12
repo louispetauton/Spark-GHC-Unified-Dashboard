@@ -1828,7 +1828,7 @@ export default function KalibriDashboard() {
                     ))}
                   </tr>
                   <tr style={{ borderBottom:"1px solid #1e293b", background:"#0a1628" }}>
-                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap" }}>Geography</th>
+                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap" }}>{geoLevel === "submarket" ? "Submarket" : "Market"}</th>
                     {geoLevel === "submarket" && (
                       <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap" }}>Market</th>
                     )}
