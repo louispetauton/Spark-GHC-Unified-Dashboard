@@ -590,8 +590,10 @@ export default function KalibriDashboard() {
 
   // trend
   const [trendMetric, setTrendMetric] = useState("revpar");
-  const [yoyClip,     setYoyClip]     = useState(null); // null = no clip, else fraction e.g. 0.3
-  const [trendGeoSel, setTrendGeoSel] = useState(null); // null = auto top 6, otherwise array of geo keys
+  const [yoyClip,     setYoyClip]     = useState(null);
+  const [trendGeoSel, setTrendGeoSel] = useState(null);
+  const [trendStart,  setTrendStart]  = useState("");
+  const [trendEnd,    setTrendEnd]    = useState("");
 
   // cagr
   const [cagrStart,      setCagrStart]      = useState("");
@@ -992,9 +994,18 @@ export default function KalibriDashboard() {
 
   // ── Trend series ───────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
-    if (!db || !filteredGeos.length || !period1) return { series:[], chartData:[] };
+    if (!db || !filteredGeos.length || !period1) return { series:[], chartData:[], top6:[] };
+
+    // Filter periods by start/end range
+    const trendPeriods = filteredPeriods.filter(p => {
+      if (trendStart && p < trendStart) return false;
+      if (trendEnd   && p > trendEnd)   return false;
+      return true;
+    });
+    const rankPeriod = trendEnd || period1;
+
     const top6 = [...filteredGeos]
-      .map(g => ({ geo:g, val: computeTrailing(db.lookup, period1, g, revType, tiers, losTiers, tw, periods)?.[trendMetric] || 0 }))
+      .map(g => ({ geo:g, val: computeTrailing(db.lookup, rankPeriod, g, revType, tiers, losTiers, tw, periods)?.[trendMetric] || 0 }))
       .sort((a, b) => b.val - a.val)
       .slice(0, 6)
       .map(g => g.geo);
@@ -1003,8 +1014,8 @@ export default function KalibriDashboard() {
     const isYoY = trendMetric.endsWith("_yoy");
     const applyClip = v => (isYoY && yoyClip != null && v != null) ? Math.max(-yoyClip, Math.min(yoyClip, v)) : v;
 
-    const chartData = filteredPeriods
-      .filter((_, i) => i % 3 === 0 || i === filteredPeriods.length - 1)
+    const chartData = trendPeriods
+      .filter((_, i) => i % 3 === 0 || i === trendPeriods.length - 1)
       .map(p => {
         const row = { period: periodLabel(p), periodRaw: p };
         for (const geo of topGeos) {
@@ -1017,7 +1028,7 @@ export default function KalibriDashboard() {
       });
 
     return { series: topGeos.map(g => geoMeta[g]?.submarket || geoMeta[g]?.market || g), chartData, top6 };
-  }, [db, filteredGeos, period1, revType, tiers, losTiers, tw, periods, trendMetric, filteredPeriods, yoyClip, trendGeoSel]);
+  }, [db, filteredGeos, period1, revType, tiers, losTiers, tw, periods, trendMetric, filteredPeriods, yoyClip, trendGeoSel, trendStart, trendEnd]);
 
   // ── CAGR rows ──────────────────────────────────────────────────────────────
   const cagrRows = useMemo(() => {
@@ -1558,6 +1569,21 @@ export default function KalibriDashboard() {
                   </div>
                 </div>
               )}
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>From</label>
+                <select value={trendStart} onChange={e => { setTrendStart(e.target.value); setTrendGeoSel(null); }} style={{ ...sel, minWidth:120 }}>
+                  <option value="">All time</option>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
+                </select>
+              </div>
+              <div style={{ alignSelf:"flex-end", paddingBottom:8, color:"#334155", fontSize:14 }}>→</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>To</label>
+                <select value={trendEnd} onChange={e => { setTrendEnd(e.target.value); setTrendGeoSel(null); }} style={{ ...sel, minWidth:120 }}>
+                  <option value="">Latest</option>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
+                </select>
+              </div>
               <div style={{ fontSize:11, color:"#475569", alignSelf:"flex-end", paddingBottom:6 }}>
                 <span style={{ color:"#94a3b8" }}>{revType}</span> · <span style={{ color:"#64748b" }}>{tw.label}</span>
               </div>
