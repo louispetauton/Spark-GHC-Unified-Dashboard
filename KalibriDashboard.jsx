@@ -587,7 +587,7 @@ function Popover({ anchorRef, open, children, minWidth = 200 }) {
     );
   }, [open]);
   if (!open || !style) return null;
-  return ReactDOM.createPortal(<div style={style}>{children}</div>, document.body);
+  return ReactDOM.createPortal(<div style={{ ...style, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>{children}</div>, document.body);
 }
 
 export default function KalibriDashboard() {
