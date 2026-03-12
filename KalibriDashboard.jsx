@@ -1489,112 +1489,84 @@ export default function KalibriDashboard() {
               }} style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155" }}>↓ Export</button>
             </div>
 
-            {/* Table — two-panel frozen pane */}
-            <div style={{ display:"flex", overflow:"hidden" }}>
-
-              {/* LEFT PANEL — fixed, no scroll */}
-              <div style={{ flexShrink:0 }}>
-                <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:12 }}>
-                  <thead>
-                    <tr style={{ background:"#070f1e" }}>
-                      <th colSpan={geoLevel === "submarket" ? 3 : 2} style={{ background:"#070f1e", padding:"3px 8px" }}/>
-                    </tr>
-                    <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
-                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W }}>
-                        {geoLevel === "submarket" ? "Submarket" : "Market"}
-                      </th>
-                      {geoLevel === "submarket" && (
-                        <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W }}>Market</th>
-                      )}
-                      <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", width:90, minWidth:90, borderLeft:"1px solid #1e293b" }}>Rooms</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {overviewRows.length === 0 && (
-                      <tr><td colSpan={geoLevel === "submarket" ? 3 : 2} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data</td></tr>
+            {/* Table — unified single table with sticky left columns */}
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:12, width:"100%" }}>
+                <thead>
+                  <tr style={{ background:"#070f1e" }}>
+                    <th style={{ position:"sticky", left:0, zIndex:2, background:"#070f1e", padding:"3px 8px", width:MKT_W, minWidth:MKT_W }}/>
+                    {geoLevel === "submarket" && (
+                      <th style={{ position:"sticky", left:MKT_W+20, zIndex:2, background:"#070f1e", padding:"3px 8px", width:SUB_W, minWidth:SUB_W }}/>
                     )}
-                    {overviewRows.map((row, i) => {
-                      const bg = i % 2 === 0 ? "#111827" : "#0f172a";
-                      const isHovered = hoveredRow === row.geo;
-                      return (
-                        <tr key={row.geo}
-                          style={{ borderBottom:"1px solid #0d1526", background: isHovered ? "#1e293b" : bg }}
-                          onMouseEnter={() => setHoveredRow(row.geo)}
-                          onMouseLeave={() => setHoveredRow(null)}>
-                          <td style={{ padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W, overflow:"hidden", textOverflow:"ellipsis" }}>
-                            {row.label}
-                          </td>
-                          {geoLevel === "submarket" && (
-                            <td style={{ padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W, overflow:"hidden", textOverflow:"ellipsis" }}>{row.mkt}</td>
-                          )}
-                          <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", whiteSpace:"nowrap", width:90, minWidth:90, borderLeft:"1px solid #1e293b" }}>
-                            {(() => { const s = getSupply(row.geo); return s ? s.rooms.toLocaleString() : "—"; })()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* RIGHT PANEL — scrollable performance columns */}
-              <div style={{ flex:1, overflowX:"auto" }}>
-                <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:12 }}>
-                  <thead>
-                    <tr style={{ background:"#070f1e" }}>
-                      <th colSpan={perfColSpan} style={{
-                        background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981",
-                        textTransform:"uppercase", letterSpacing:1, textAlign:"center",
-                        borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526",
-                      }}>
-                        <div>PERFORMANCE</div>
-                        <div style={{ marginTop:2, fontWeight:400, fontSize:8, fontFamily:"'IBM Plex Mono',monospace", textTransform:"none", letterSpacing:0 }}>
-                          <span style={{ color:"#3b82f6" }}>{periodLabel(period1)}</span>
-                          <span style={{ color:"#334155", margin:"0 4px" }}>vs</span>
-                          <span style={{ color:"#64748b" }}>{ovStart ? periodLabel(ovStart) : "prior year"}</span>
-                        </div>
-                      </th>
-                    </tr>
-                    <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
-                      {METRICS.map(m => m.yoyKey ? [
-                        <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>{m.label}</th>,
-                        <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>{ovStart ? "% Chg" : "YoY"}</th>,
-                      ] : (
-                        <th key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:60 }}>{m.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {overviewRows.length === 0 && (
-                      <tr><td colSpan={perfColSpan} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
+                    <th style={{ position:"sticky", left:geoLevel==="submarket" ? MKT_W+20+SUB_W+20 : MKT_W+20, zIndex:2, background:"#070f1e", padding:"3px 8px", width:90, minWidth:90 }}/>
+                    <th colSpan={perfColSpan} style={{
+                      background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981",
+                      textTransform:"uppercase", letterSpacing:1, textAlign:"center",
+                      borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526",
+                    }}>
+                      <div>PERFORMANCE</div>
+                      <div style={{ marginTop:2, fontWeight:400, fontSize:8, fontFamily:"'IBM Plex Mono',monospace", textTransform:"none", letterSpacing:0 }}>
+                        <span style={{ color:"#3b82f6" }}>{periodLabel(period1)}</span>
+                        <span style={{ color:"#334155", margin:"0 4px" }}>vs</span>
+                        <span style={{ color:"#64748b" }}>{ovStart ? periodLabel(ovStart) : "prior year"}</span>
+                      </div>
+                    </th>
+                  </tr>
+                  <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
+                    <th style={{ position:"sticky", left:0, zIndex:2, background:"#0a1628", padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W }}>
+                      {geoLevel === "submarket" ? "Submarket" : "Market"}
+                    </th>
+                    {geoLevel === "submarket" && (
+                      <th style={{ position:"sticky", left:MKT_W+20, zIndex:2, background:"#0a1628", padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W }}>Market</th>
                     )}
-                    {overviewRows.map((row, i) => {
-                      const bg = i % 2 === 0 ? "#111827" : "#0f172a";
-                      const isHovered = hoveredRow === row.geo;
-                      return (
-                        <tr key={row.geo}
-                          style={{ borderBottom:"1px solid #0d1526", background: isHovered ? "#1e293b" : bg }}
-                          onMouseEnter={() => setHoveredRow(row.geo)}
-                          onMouseLeave={() => setHoveredRow(null)}>
-                          {METRICS.map(m => m.yoyKey ? [
-                            <td key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#cbd5e1", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
-                              {m.valFmt(row.m[m.key])}
-                            </td>,
-                            <td key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:chgColor(row.m[m.yoyKey], m.isOcc), fontWeight:600, whiteSpace:"nowrap" }}>
-                              {m.isOcc ? fmt.pp(row.m[m.yoyKey]) : fmt.pct(row.m[m.yoyKey])}
-                            </td>,
-                          ] : (
-                            <td key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#94a3b8", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
-                              {m.valFmt(row.m[m.key])}
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
+                    <th style={{ position:"sticky", left:geoLevel==="submarket" ? MKT_W+20+SUB_W+20 : MKT_W+20, zIndex:2, background:"#0a1628", padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", width:90, minWidth:90, borderLeft:"1px solid #1e293b" }}>Rooms</th>
+                    {METRICS.map(m => m.yoyKey ? [
+                      <th key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>{m.label}</th>,
+                      <th key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#64748b",  fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>{ovStart ? "% Chg" : "YoY"}</th>,
+                    ] : (
+                      <th key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:60 }}>{m.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {overviewRows.length === 0 && (
+                    <tr><td colSpan={(geoLevel==="submarket" ? 3 : 2) + perfColSpan} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
+                  )}
+                  {overviewRows.map((row, i) => {
+                    const bg = i % 2 === 0 ? "#111827" : "#0f172a";
+                    const isHovered = hoveredRow === row.geo;
+                    const rowBg = isHovered ? "#1e293b" : bg;
+                    return (
+                      <tr key={row.geo}
+                        style={{ borderBottom:"1px solid #0d1526" }}
+                        onMouseEnter={() => setHoveredRow(row.geo)}
+                        onMouseLeave={() => setHoveredRow(null)}>
+                        <td style={{ position:"sticky", left:0, zIndex:1, background:rowBg, padding:"6px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W, overflow:"hidden", textOverflow:"ellipsis" }}>
+                          {row.label}
+                        </td>
+                        {geoLevel === "submarket" && (
+                          <td style={{ position:"sticky", left:MKT_W+20, zIndex:1, background:rowBg, padding:"6px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap", width:SUB_W, minWidth:SUB_W, maxWidth:SUB_W, overflow:"hidden", textOverflow:"ellipsis" }}>{row.mkt}</td>
+                        )}
+                        <td style={{ position:"sticky", left:geoLevel==="submarket" ? MKT_W+20+SUB_W+20 : MKT_W+20, zIndex:1, background:rowBg, padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#60a5fa", whiteSpace:"nowrap", width:90, minWidth:90, borderLeft:"1px solid #1e293b" }}>
+                          {(() => { const s = getSupply(row.geo); return s ? s.rooms.toLocaleString() : "—"; })()}
+                        </td>
+                        {METRICS.map(m => m.yoyKey ? [
+                          <td key={m.key+"v"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#cbd5e1", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                            {m.valFmt(row.m[m.key])}
+                          </td>,
+                          <td key={m.key+"c"} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:chgColor(row.m[m.yoyKey], m.isOcc), fontWeight:600, whiteSpace:"nowrap" }}>
+                            {m.isOcc ? fmt.pp(row.m[m.yoyKey]) : fmt.pct(row.m[m.yoyKey])}
+                          </td>,
+                        ] : (
+                          <td key={m.key} style={{ padding:"6px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:"#94a3b8", borderLeft:"1px solid #0d1526", whiteSpace:"nowrap" }}>
+                            {m.valFmt(row.m[m.key])}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
