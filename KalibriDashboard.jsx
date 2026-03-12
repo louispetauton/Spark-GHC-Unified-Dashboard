@@ -591,8 +591,7 @@ export default function KalibriDashboard() {
   // trend
   const [trendMetric, setTrendMetric] = useState("revpar");
   const [yoyClip,     setYoyClip]     = useState(null); // null = no clip, else fraction e.g. 0.3
-  const [trendStart,  setTrendStart]  = useState("");
-  const [trendEnd,    setTrendEnd]    = useState("");
+  const [trendGeoSel, setTrendGeoSel] = useState(null); // null = auto top 6, otherwise array of geo keys
 
   // cagr
   const [cagrStart,      setCagrStart]      = useState("");
@@ -992,22 +991,18 @@ export default function KalibriDashboard() {
   // ── Trend series ───────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
     if (!db || !filteredGeos.length || !period1) return { series:[], chartData:[] };
-    const topGeos = [...filteredGeos]
+    const top6 = [...filteredGeos]
       .map(g => ({ geo:g, val: computeTrailing(db.lookup, period1, g, revType, tiers, losTiers, tw, periods)?.[trendMetric] || 0 }))
       .sort((a, b) => b.val - a.val)
       .slice(0, 6)
       .map(g => g.geo);
+    const topGeos = trendGeoSel ? trendGeoSel.filter(g => filteredGeos.includes(g)) : top6;
 
     const isYoY = trendMetric.endsWith("_yoy");
     const applyClip = v => (isYoY && yoyClip != null && v != null) ? Math.max(-yoyClip, Math.min(yoyClip, v)) : v;
 
-    const trendPeriods = filteredPeriods.filter(p => {
-      if (trendStart && p < trendStart) return false;
-      if (trendEnd   && p > trendEnd)   return false;
-      return true;
-    });
-    const chartData = trendPeriods
-      .filter((_, i) => i % 3 === 0 || i === trendPeriods.length - 1)
+    const chartData = filteredPeriods
+      .filter((_, i) => i % 3 === 0 || i === filteredPeriods.length - 1)
       .map(p => {
         const row = { period: periodLabel(p), periodRaw: p };
         for (const geo of topGeos) {
@@ -1019,8 +1014,8 @@ export default function KalibriDashboard() {
         return row;
       });
 
-    return { series: topGeos.map(g => geoMeta[g]?.submarket || geoMeta[g]?.market || g), chartData };
-  }, [db, filteredGeos, period1, revType, tiers, losTiers, tw, periods, trendMetric, filteredPeriods, yoyClip, trendStart, trendEnd]);
+    return { series: topGeos.map(g => geoMeta[g]?.submarket || geoMeta[g]?.market || g), chartData, top6 };
+  }, [db, filteredGeos, period1, revType, tiers, losTiers, tw, periods, trendMetric, filteredPeriods, yoyClip, trendGeoSel]);
 
   // ── CAGR rows ──────────────────────────────────────────────────────────────
   const cagrRows = useMemo(() => {
@@ -1547,34 +1542,38 @@ export default function KalibriDashboard() {
                   </div>
                 </div>
               )}
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={label9}>Start Period</label>
-                <select value={trendStart} onChange={e => setTrendStart(e.target.value)} style={{ ...sel, minWidth:120 }}>
-                  <option value="">All</option>
-                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
-                </select>
-              </div>
-              <div style={{ alignSelf:"flex-end", paddingBottom:8, color:"#334155", fontSize:14 }}>→</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={label9}>End Period</label>
-                <select value={trendEnd} onChange={e => setTrendEnd(e.target.value)} style={{ ...sel, minWidth:120 }}>
-                  <option value="">All</option>
-                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
-                </select>
-              </div>
               <div style={{ fontSize:11, color:"#475569", alignSelf:"flex-end", paddingBottom:6 }}>
-                Top 6 · <span style={{ color:"#94a3b8" }}>{revType}</span> · <span style={{ color:"#64748b" }}>{tw.label}</span>
+                <span style={{ color:"#94a3b8" }}>{revType}</span> · <span style={{ color:"#64748b" }}>{tw.label}</span>
               </div>
             </div>
 
-            {/* Legend pills */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:4, alignItems:"center" }}>
-              {trendData.series.map((s, i) => (
-                <div key={s} style={{ display:"flex", alignItems:"center", gap:5, background:"#1e293b", borderRadius:4, padding:"3px 10px" }}>
-                  <div style={{ width:8, height:8, borderRadius:2, background:COLORS[i % COLORS.length] }}/>
-                  <span style={{ fontSize:10, color:"#cbd5e1" }}>{s}</span>
-                </div>
-              ))}
+            {/* Market selector */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12, alignItems:"center" }}>
+              <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1, marginRight:4 }}>Markets</span>
+              {filteredGeos.map((geo, i) => {
+                const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
+                const selected = trendGeoSel ? trendGeoSel.includes(geo) : trendData.top6?.includes(geo);
+                const colorIdx = (trendGeoSel ? trendGeoSel.indexOf(geo) : trendData.top6?.indexOf(geo)) % COLORS.length;
+                const color = selected ? COLORS[colorIdx >= 0 ? colorIdx : i % COLORS.length] : "#3b82f6";
+                return (
+                  <div key={geo} onClick={() => {
+                    const current = trendGeoSel || trendData.top6 || [];
+                    if (current.includes(geo)) {
+                      setTrendGeoSel(current.filter(g => g !== geo));
+                    } else {
+                      setTrendGeoSel([...current, geo]);
+                    }
+                  }} style={{ display:"flex", alignItems:"center", gap:5, background: selected ? "#1e293b" : "#0f172a",
+                    border: selected ? `1px solid ${color}55` : "1px solid #1e293b",
+                    borderRadius:4, padding:"3px 10px", cursor:"pointer", opacity: selected ? 1 : 0.4 }}>
+                    {selected && <div style={{ width:8, height:8, borderRadius:2, background:color }}/>}
+                    <span style={{ fontSize:10, color: selected ? "#cbd5e1" : "#475569" }}>{label}</span>
+                  </div>
+                );
+              })}
+              {trendGeoSel && (
+                <span onClick={() => setTrendGeoSel(null)} style={{ fontSize:10, color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>reset to top 6</span>
+              )}
               {showForecast && (
                 <div style={{ display:"flex", alignItems:"center", gap:5, background:"#f59e0b11", border:"1px solid #f59e0b33", borderRadius:4, padding:"3px 10px", marginLeft:8 }}>
                   <div style={{ width:8, height:8, borderRadius:2, background:"#f59e0b44", border:"1px dashed #f59e0b" }}/>
