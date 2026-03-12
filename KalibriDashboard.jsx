@@ -1191,6 +1191,12 @@ export default function KalibriDashboard() {
             <span style={{ fontSize:10, color:"#3b82f6", fontFamily:"'IBM Plex Mono',monospace" }}>Kalibri Labs · Guest Paid / Hotel Collected / COPE</span>
           </div>
           <div style={{ fontSize:10, color:"#334155", fontFamily:"'IBM Plex Mono',monospace" }}>Last Actual: <span style={{ color:"#94a3b8" }}>{periodLabel(lastActual)}</span></div>
+          <div style={{ width:1, height:28, background:"#1e293b" }}/>
+          <div style={{ display:"flex", gap:2 }}>
+            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"],["supply","Supply"],["map","Map"]].map(([id, lbl]) => (
+              <Btn key={id} active={tab===id} onClick={() => setTab(id)} color="#6366f1">{lbl}</Btn>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1354,16 +1360,6 @@ export default function KalibriDashboard() {
         )}
 
         <div style={{ flex:1 }}/>
-
-        {/* Tabs */}
-        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-          <label style={label9}>Analysis</label>
-          <div style={{ display:"flex", gap:2 }}>
-            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"],["supply","Supply"],["map","Map"]].map(([id, lbl]) => (
-              <Btn key={id} active={tab===id} onClick={() => setTab(id)} color="#6366f1">{lbl}</Btn>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ── Content ── */}
