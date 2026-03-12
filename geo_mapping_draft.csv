@@ -1,0 +1,46 @@
+kalibri_market,kalibri_submarket,costar_market,costar_geography,match_quality,notes
+Cincinnati OH,ALL,Cincinnati - OH USA,Cincinnati - OH USA,exact,Market level match
+Cincinnati OH,CVG Airport - Cincinnati OH,Cincinnati - OH USA,Cincinnati - OH USA - Cincinnati South/Airport,good,Airport submarket aligns
+Cincinnati OH,Downtown Cincinnati - Cincinnati OH,Cincinnati - OH USA,Cincinnati - OH USA - Cincinnati CBD/Riverfront,good,CBD match
+Cincinnati OH,Cincinnati North - Cincinnati OH,Cincinnati - OH USA,Cincinnati - OH USA - Sharonville/Blue Ash,partial,North covers more than Sharonville/Blue Ash
+Cincinnati OH,Cincinnati East - Cincinnati OH,Cincinnati - OH USA,Cincinnati - OH USA - Cincinnati Northeast,partial,
+Cincinnati OH,Cincinnati West - Cincinnati OH,Cincinnati - OH USA,Cincinnati - OH USA - Cincinnati Northwest,partial,
+Cincinnati OH,Franklin - Cincinnati OH,Cincinnati - OH USA,,none,No CoStar equivalent
+Cleveland OH,ALL,Cleveland - OH USA,Cleveland - OH USA,exact,Market level match
+Cleveland OH,Downtown Cleveland - Cleveland OH,Cleveland - OH USA,Cleveland - OH USA - Cleveland CBD/Independence,good,
+Cleveland OH,Avon/I90 West - Cleveland OH,Cleveland - OH USA,Cleveland - OH USA - Cleveland Airport/Westlake,partial,Avon is west not airport area
+Cleveland OH,Cleveland Heights - Cleveland OH,Cleveland - OH USA,Cleveland - OH USA - Willoughby/Beachwood,partial,Both east side suburbs
+Cleveland OH,Cleveland Southeast - Cleveland OH,Cleveland - OH USA,Cleveland - OH USA - Cleveland Surrounding Areas,partial,
+Cleveland OH,Strongsville/Medina - Cleveland OH,Cleveland - OH USA,Cleveland - OH USA - Cleveland Surrounding Areas,partial,Both rolled into Surrounding Areas in CoStar
+Columbus OH,ALL,Columbus - OH USA,Columbus - OH USA,exact,Market level match
+Columbus OH,Downtown Columbus - Columbus OH,Columbus - OH USA,Columbus - OH USA - Columbus CBD,good,
+Columbus OH,CMH Airport - Columbus OH,Columbus - OH USA,Columbus - OH USA - Columbus Airport Area,good,
+Columbus OH,Worthington/Westerville - Columbus OH,Columbus - OH USA,Columbus - OH USA - Columbus North,partial,
+Columbus OH,Columbus West - Columbus OH,Columbus - OH USA,Columbus - OH USA - Dublin/I-270 West,partial,
+Columbus OH,Columbus South - Columbus OH,Columbus - OH USA,Columbus - OH USA - Columbus Rural Areas,partial,
+Columbus OH,Newark - Columbus OH,Columbus - OH USA,Columbus - OH USA - Columbus Rural Areas,partial,
+Dayton OH,ALL,Dayton/Springfield - OH USA,Dayton/Springfield - OH USA,partial,CoStar includes Springfield; Kalibri has it separate
+Dayton OH,Dayton Northeast/Fairborn - Dayton OH,Dayton/Springfield - OH USA,Dayton/Springfield - OH USA - Dayton North/Fairborn,good,
+Dayton OH,Dayton South/Miamisburg - Dayton OH,Dayton/Springfield - OH USA,Dayton/Springfield - OH USA - Dayton South,good,
+Dayton OH,Downtown/DAY Airport - Dayton OH,Dayton/Springfield - OH USA,Dayton/Springfield - OH USA - Dayton North/Fairborn,partial,Airport is near Fairborn area
+Dayton OH,Springfield - Dayton OH,Dayton/Springfield - OH USA,Dayton/Springfield - OH USA - Springfield and Surrounding,good,
+Dayton OH,Tipp City/Troy - Dayton OH,Dayton/Springfield - OH USA,,none,No CoStar equivalent
+Akron OH,ALL,Ohio Area USA,Ohio Area USA - Akron,partial,Kalibri market = CoStar submarket
+Akron OH,Akron - Akron OH,Ohio Area USA,Ohio Area USA - Akron,partial,Rolled into one CoStar submarket
+Akron OH,Akron West - Akron OH,Ohio Area USA,Ohio Area USA - Akron,partial,
+Akron OH,Canton - Akron OH,Ohio Area USA,Ohio Area USA - Akron,partial,
+Akron OH,Twinsburg/Streetsboro - Akron OH,Ohio Area USA,Ohio Area USA - Akron,partial,
+Ohio State Area OH,ALL,Ohio Area USA,,partial,Split across CoStar Ohio Area submarkets
+Ohio State Area OH,Findlay - Ohio State Area OH,Ohio Area USA,Ohio Area USA - Lima/Findlay,good,
+Ohio State Area OH,Lima - Ohio State Area OH,Ohio Area USA,Ohio Area USA - Lima/Findlay,good,
+Ohio State Area OH,Ohio North - Ohio State Area OH,Ohio Area USA,Ohio Area USA - Ohio North Area,partial,
+Ohio State Area OH,Ohio South - Ohio State Area OH,Ohio Area USA,Ohio Area USA - Ohio South Area,partial,
+Ohio State Area OH,Mansfield/Ashland - Ohio State Area OH,Ohio Area USA,Ohio Area USA - Ohio North Area,partial,
+Ohio State Area OH,I70 Corridor - Ohio State Area OH,Ohio Area USA,Ohio Area USA - Ohio South Area,partial,
+Sandusky OH,ALL,Ohio Area USA,Ohio Area USA - Sandusky/Port Clinton,partial,Kalibri market = CoStar submarket
+Sandusky OH,Sandusky OH,Ohio Area USA,Ohio Area USA - Sandusky/Port Clinton,partial,
+Toledo OH,ALL,Ohio Area USA,Ohio Area USA - Toledo,partial,Kalibri market = CoStar submarket
+Toledo OH,Toledo East - Toledo OH,Ohio Area USA,Ohio Area USA - Toledo,partial,
+Toledo OH,Toledo West - Toledo OH,Ohio Area USA,Ohio Area USA - Toledo,partial,
+Youngstown OH,ALL,Ohio Area USA,Ohio Area USA - Youngstown/Warren,partial,Kalibri market = CoStar submarket
+Youngstown OH,Youngstown OH,Ohio Area USA,Ohio Area USA - Youngstown/Warren,partial,
