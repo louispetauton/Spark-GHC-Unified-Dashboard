@@ -1638,7 +1638,7 @@ export default function KalibriDashboard() {
                   {" "}<span style={{ fontSize:9 }}>{trendGeoOpen ? "▲" : "▼"}</span>
                 </button>
                 {trendGeoOpen && (
-                  <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:320, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                  <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:320, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
                     {trendGeoSel && (
                       <span onClick={() => { setTrendGeoSel(null); }} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>reset to top 6</span>
                     )}
@@ -1877,7 +1877,7 @@ export default function KalibriDashboard() {
                     {supplyFilterCompany.length > 0 ? `${supplyFilterCompany.length} selected` : "All"} <span style={{ fontSize:9 }}>{supplyCompanyOpen ? "▲" : "▼"}</span>
                   </Btn>
                   {supplyCompanyOpen && (
-                    <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                    <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
                       {supplyFilterCompany.length > 0 && <span onClick={() => { setSupplyFilterCompany([]); setSupplyFilterBrand([]); }} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>}
                       {supplyCompanies.map(c => (
                         <div key={c} onClick={() => { setSupplyFilterCompany(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setSupplyFilterBrand([]); }}
@@ -1901,7 +1901,7 @@ export default function KalibriDashboard() {
                       {supplyFilterBrand.length > 0 ? `${supplyFilterBrand.length} selected` : `all ${supplyVisibleBrands.length}`} <span style={{ fontSize:9 }}>{supplyBrandOpen ? "▲" : "▼"}</span>
                     </Btn>
                     {supplyBrandOpen && (
-                      <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:200, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                      <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:200, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
                         {supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>}
                         {supplyVisibleBrands.map(b => (
                           <div key={b} onClick={() => setSupplyFilterBrand(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
@@ -2185,7 +2185,7 @@ export default function KalibriDashboard() {
                         Status{ccStatuses.length > 0 ? ` (${ccStatuses.length})` : ""} <span style={{ fontSize:9 }}>{ccStatusOpen ? "▲" : "▼"}</span>
                       </Btn>
                       {ccStatusOpen && (
-                        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, display:"flex", flexDirection:"column", gap:2 }}>
+                        <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, display:"flex", flexDirection:"column", gap:2 }}>
                           {ccStatuses.length > 0 && (
                             <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>
                           )}
