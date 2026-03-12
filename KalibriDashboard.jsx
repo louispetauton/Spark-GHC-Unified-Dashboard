@@ -2054,8 +2054,10 @@ export default function KalibriDashboard() {
         const CC_STATUS_COLOR = { "Conceptual":"#64748b","Design":"#3b82f6","Final Planning":"#8b5cf6","GC Bidding":"#f59e0b","Sub-Bidding":"#f59e0b","Pre-Construction/Negotiated":"#f97316","Award":"#10b981","Post-Bid":"#10b981","Bid Results":"#10b981","Under Construction":"#22c55e" };
         return (
           <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
-            {/* ── Single-row filter panel ── */}
-            <div style={{ display:"flex", gap:10, padding:"6px 16px", alignItems:"flex-start", overflowX:"auto", flexWrap:"nowrap", borderBottom:"1px solid #1e293b", flexShrink:0, position:"relative", zIndex:100 }}>
+            {/* ── Filter panel: scrollable left + fixed CC right ── */}
+            <div style={{ display:"flex", alignItems:"flex-start", borderBottom:"1px solid #1e293b", flexShrink:0 }}>
+            {/* Scrollable section */}
+            <div style={{ display:"flex", gap:10, padding:"6px 16px", alignItems:"flex-start", overflowX:"auto", flexWrap:"nowrap", flex:1, minWidth:0 }}>
 
               {/* View + Ext Stay */}
               <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
@@ -2169,43 +2171,44 @@ export default function KalibriDashboard() {
                 </div>
               )}
 
-              {/* Construct Connect layer */}
-              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, borderLeft:"1px solid #1e293b", paddingLeft:10 }}>
-                <label style={label9}>Construct Connect {ccData.length > 0 && <span style={{ color:"#475569" }}>· {ccData.length.toLocaleString()} projects</span>}</label>
-                <div style={{ display:"flex", gap:2, flexWrap:"nowrap", alignItems:"center" }}>
-                  <Btn active={showCC} onClick={() => { setShowCC(v => !v); setCcStatusOpen(false); }} color="#06b6d4">{showCC ? "Hide" : "Show"} Layer</Btn>
-                  {showCC && <>
-                    <span style={{ width:1, background:"#334155", alignSelf:"stretch", margin:"0 6px" }} />
-                    <Btn active={ccTypeFilter==="all"}     onClick={() => setCcTypeFilter("all")}     color="#06b6d4">All</Btn>
-                    <Btn active={ccTypeFilter==="hotel"}   onClick={() => setCcTypeFilter("hotel")}   color="#3b82f6">Hotel</Btn>
-                    <Btn active={ccTypeFilter==="elderly"} onClick={() => setCcTypeFilter("elderly")} color="#8b5cf6">Elderly</Btn>
-                    <span style={{ width:1, background:"#334155", alignSelf:"stretch", margin:"0 6px" }} />
-                    <div style={{ position:"relative" }}>
-                      <Btn active={ccStatuses.length > 0 || ccStatusOpen} onClick={() => setCcStatusOpen(v => !v)} color="#6366f1" style={{ display:"flex", alignItems:"center", gap:4 }}>
-                        Status{ccStatuses.length > 0 ? ` (${ccStatuses.length})` : ""} <span style={{ fontSize:9 }}>{ccStatusOpen ? "▲" : "▼"}</span>
-                      </Btn>
-                      {ccStatusOpen && (
-                        <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, display:"flex", flexDirection:"column", gap:2 }}>
-                          {ccStatuses.length > 0 && (
-                            <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>
-                          )}
-                          {CC_STATUSES_ALL.map(s => (
-                            <div key={s} onClick={() => setCcStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                              style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", padding:"4px 8px", borderRadius:4, background: ccStatuses.includes(s) ? CC_STATUS_COLOR[s]+"22" : "transparent" }}>
-                              <div style={{ width:8, height:8, background:CC_STATUS_COLOR[s], borderRadius:1, transform:"rotate(45deg)", flexShrink:0 }} />
-                              <span style={{ fontSize:11, color: ccStatuses.includes(s) ? CC_STATUS_COLOR[s] : "#94a3b8", flex:1 }}>{s}</span>
-                              {ccStatuses.includes(s) && <span style={{ color:CC_STATUS_COLOR[s], fontSize:10 }}>✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </>}
-                </div>
-              </div>
-
               {!mapReady && <span style={{ color:"#f59e0b", fontSize:11, alignSelf:"center", flexShrink:0 }}>Loading map…</span>}
+            </div>{/* end scrollable section */}
+
+            {/* Construct Connect — fixed right, outside overflow container so dropdown escapes */}
+            <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, borderLeft:"1px solid #1e293b", padding:"6px 16px", position:"relative", zIndex:200 }}>
+              <label style={label9}>Construct Connect {ccData.length > 0 && <span style={{ color:"#475569" }}>· {ccData.length.toLocaleString()} projects</span>}</label>
+              <div style={{ display:"flex", gap:2, flexWrap:"nowrap", alignItems:"center" }}>
+                <Btn active={showCC} onClick={() => { setShowCC(v => !v); setCcStatusOpen(false); }} color="#06b6d4">{showCC ? "Hide" : "Show"} Layer</Btn>
+                {showCC && <>
+                  <span style={{ width:1, background:"#334155", alignSelf:"stretch", margin:"0 6px" }} />
+                  <Btn active={ccTypeFilter==="all"}     onClick={() => setCcTypeFilter("all")}     color="#06b6d4">All</Btn>
+                  <Btn active={ccTypeFilter==="hotel"}   onClick={() => setCcTypeFilter("hotel")}   color="#3b82f6">Hotel</Btn>
+                  <Btn active={ccTypeFilter==="elderly"} onClick={() => setCcTypeFilter("elderly")} color="#8b5cf6">Elderly</Btn>
+                  <span style={{ width:1, background:"#334155", alignSelf:"stretch", margin:"0 6px" }} />
+                  <div style={{ position:"relative" }}>
+                    <Btn active={ccStatuses.length > 0 || ccStatusOpen} onClick={() => setCcStatusOpen(v => !v)} color="#6366f1" style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      Status{ccStatuses.length > 0 ? ` (${ccStatuses.length})` : ""} <span style={{ fontSize:9 }}>{ccStatusOpen ? "▲" : "▼"}</span>
+                    </Btn>
+                    {ccStatusOpen && (
+                      <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, display:"flex", flexDirection:"column", gap:2 }}>
+                        {ccStatuses.length > 0 && (
+                          <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>
+                        )}
+                        {CC_STATUSES_ALL.map(s => (
+                          <div key={s} onClick={() => setCcStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                            style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", padding:"4px 8px", borderRadius:4, background: ccStatuses.includes(s) ? CC_STATUS_COLOR[s]+"22" : "transparent" }}>
+                            <div style={{ width:8, height:8, background:CC_STATUS_COLOR[s], borderRadius:1, transform:"rotate(45deg)", flexShrink:0 }} />
+                            <span style={{ fontSize:11, color: ccStatuses.includes(s) ? CC_STATUS_COLOR[s] : "#94a3b8", flex:1 }}>{s}</span>
+                            {ccStatuses.includes(s) && <span style={{ color:CC_STATUS_COLOR[s], fontSize:10 }}>✓</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>}
+              </div>
             </div>
+            </div>{/* end filter bar wrapper */}
 
             {/* Map fills remaining height */}
             <div id="kalibri-map" style={{ flex:1, minHeight:0, background:"#0a1628" }} />
