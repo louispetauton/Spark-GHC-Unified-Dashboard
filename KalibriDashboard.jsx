@@ -1129,6 +1129,7 @@ export default function KalibriDashboard() {
   }, [supplyData, extStayOnly, supplyFilterCompany]);
 
   // ── Styles ─────────────────────────────────────────────────────────────────
+  const PILL_ROW = { display:"flex", gap:3, flexWrap:"nowrap", overflowX:"auto", overflowY:"hidden", padding:"4px 6px", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, marginTop:3, height:28, alignItems:"center" };
   const sel = {
     background:"#1e293b", border:"1px solid #334155", color:"#f1f5f9",
     borderRadius:6, padding:"0 10px", height:28, fontSize:11, outline:"none", cursor:"pointer",
@@ -1937,7 +1938,6 @@ export default function KalibriDashboard() {
           .filter(r => (mapCompanies.length === 0 || mapCompanies.includes(r.Company)) && (!mapExtStay || EXTENDED_STAY_BRANDS.has(r.Brand)))
           .reduce((s, r) => { s.add(r.Brand); return s; }, new Set());
         const visibleBrands = [...brandsForCompany].sort();
-        const PILL_ROW = { display:"flex", gap:3, flexWrap:"nowrap", overflowX:"auto", overflowY:"hidden", padding:"4px 6px", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, marginTop:3, height:28, alignItems:"center" };
         const toggleGeo = key => setSelectedGeos(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
         const CC_STATUSES_ALL = ["Conceptual","Design","Final Planning","GC Bidding","Sub-Bidding","Pre-Construction/Negotiated","Award","Post-Bid","Bid Results","Under Construction"];
         const CC_STATUS_COLOR = { "Conceptual":"#64748b","Design":"#3b82f6","Final Planning":"#8b5cf6","GC Bidding":"#f59e0b","Sub-Bidding":"#f59e0b","Pre-Construction/Negotiated":"#f97316","Award":"#10b981","Post-Bid":"#10b981","Bid Results":"#10b981","Under Construction":"#22c55e" };
