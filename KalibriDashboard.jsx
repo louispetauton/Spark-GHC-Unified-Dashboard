@@ -622,6 +622,7 @@ export default function KalibriDashboard() {
   // map tab
   const [mapReady,      setMapReady]     = useState(false);
   const [mapMode,       setMapMode]      = useState("bubbles");   // "bubbles" | "pins"
+  const [ccStatusOpen,  setCcStatusOpen] = useState(false);
   const [mapCompanies,  setMapCompanies] = useState([]);
   const [mapBrands,     setMapBrands]    = useState([]);
   const [mapExtStay,    setMapExtStay]   = useState(false);
@@ -857,7 +858,8 @@ export default function KalibriDashboard() {
           const div = L.DomUtil.create("div");
           const sizes = [[maxRooms, "Max"], [Math.round(maxRooms * 0.5), "50%"], [Math.round(maxRooms * 0.25), "25%"]];
           div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8">
-            <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">Rooms</div>
+            <div style="font-weight:700;color:#e2e8f0;margin-bottom:2px;font-size:10px;text-transform:uppercase;letter-spacing:1px">Rooms</div>
+            <div style="font-size:9px;color:#475569;margin-bottom:8px">bubble size = room count</div>
             ${sizes.map(([r, lbl]) => { const px = Math.max(8, Math.sqrt(r / maxRooms) * 42); return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><svg width="${px*2+2}" height="${px*2+2}" style="flex-shrink:0"><circle cx="${px+1}" cy="${px+1}" r="${px}" fill="${tierColor}" fill-opacity="0.55" stroke="#fff" stroke-width="1.5"/></svg><span>${r.toLocaleString()} <span style="color:#475569">${lbl}</span></span></div>`; }).join("")}
           </div>`;
           return div;
@@ -915,9 +917,14 @@ export default function KalibriDashboard() {
         ccLegend.onAdd = () => {
           const div = L.DomUtil.create("div");
           const visibleStatuses = [...new Set(ccFiltered.map(r => r.Status))].sort();
-          div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8;max-width:180px">
-            <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">CC Projects · ${ccFiltered.length}</div>
-            ${visibleStatuses.map(s => { const c = CC_STATUS_COLOR[s]||"#64748b"; return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><div style="width:8px;height:8px;background:${c};transform:rotate(45deg);flex-shrink:0;border-radius:1px"></div><span style="color:${c};font-size:10px">${s}</span></div>`; }).join("")}
+          div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8;max-width:200px">
+            <div onclick="const b=this.nextElementSibling;const tog=this.querySelector('.cc-tog');if(b.style.display==='none'){b.style.display='flex';tog.textContent='▼';}else{b.style.display='none';tog.textContent='▶';}" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-bottom:8px">
+              <span style="font-weight:700;color:#e2e8f0;font-size:10px;text-transform:uppercase;letter-spacing:1px">CC Projects · ${ccFiltered.length}</span>
+              <span class="cc-tog" style="color:#64748b;font-size:9px;margin-left:8px">▼</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              ${visibleStatuses.map(s => { const c = CC_STATUS_COLOR[s]||"#64748b"; return `<div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;background:${c};transform:rotate(45deg);flex-shrink:0;border-radius:1px"></div><span style="color:${c};font-size:10px">${s}</span></div>`; }).join("")}
+            </div>
           </div>`;
           return div;
         };
@@ -1218,7 +1225,7 @@ export default function KalibriDashboard() {
             style={{ height:32, objectFit:"contain" }}
           />
           <div style={{ width:1, height:28, background:"#1e293b" }}/>
-          <div style={{ fontSize:18, fontWeight:700, color:"#f8fafc", letterSpacing:-0.5 }}>Ohio Hospitality Analytics — Kalibri Labs</div>
+          <div style={{ fontSize:15, fontWeight:700, color:"#f8fafc", letterSpacing:-0.3, whiteSpace:"nowrap" }}>Ohio Hospitality Analytics — Kalibri Labs</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <div style={{ display:"flex", alignItems:"center", gap:6, background:"#3b82f611", border:"1px solid #3b82f633", borderRadius:6, padding:"4px 10px" }}>
@@ -1243,7 +1250,7 @@ export default function KalibriDashboard() {
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Revenue Type</label>
           <div style={{ display:"flex", gap:2 }}>
-            {REV_TYPES.map(rt => <Btn key={rt} active={revType===rt} onClick={() => setRevType(rt)} color="#3b82f6">{rt}</Btn>)}
+            {REV_TYPES.map(rt => <Btn key={rt} active={revType===rt} onClick={() => setRevType(rt)} color="#6366f1">{rt}</Btn>)}
           </div>
         </div>
         )}
@@ -1263,7 +1270,7 @@ export default function KalibriDashboard() {
                   return [...prev.filter(v => v !== "All Tier"), t];
                 });
               };
-              return <Btn key={t} active={active} onClick={handleClick} color="#10b981">{t.replace(" Tier","")}</Btn>;
+              return <Btn key={t} active={active} onClick={handleClick} color="#6366f1">{t.replace(" Tier","")}</Btn>;
             })}
           </div>
         </div>
@@ -1284,7 +1291,7 @@ export default function KalibriDashboard() {
                   return [...prev.filter(v => v !== ""), l.value];
                 });
               };
-              return <Btn key={l.value} active={active} onClick={handleClick} color="#8b5cf6">{l.label}</Btn>;
+              return <Btn key={l.value} active={active} onClick={handleClick} color="#6366f1">{l.label}</Btn>;
             })}
           </div>
         </div>
@@ -1306,7 +1313,7 @@ export default function KalibriDashboard() {
           <label style={label9}>Time Window</label>
           <div style={{ display:"flex", gap:2 }}>
             {TIME_WINDOWS.map(t => (
-              <Btn key={t.id} active={timeWindow===t.id} onClick={() => setTimeWindow(t.id)} color="#3b82f6">{t.label}</Btn>
+              <Btn key={t.id} active={timeWindow===t.id} onClick={() => setTimeWindow(t.id)} color="#6366f1">{t.label}</Btn>
             ))}
           </div>
         </div>
@@ -1316,8 +1323,8 @@ export default function KalibriDashboard() {
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Geography</label>
           <div style={{ display:"flex", gap:2 }}>
-            <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market"); setSelectedGeos([]); setDrillMkt(null); setExpandedGeo(null); }} color="#f97316">Markets</Btn>
-            <Btn active={geoLevel==="submarket"} onClick={() => { setGeoLevel("submarket"); setSelectedGeos([]); setDrillMkt(null); setExpandedGeo(null); }} color="#f97316">Submarkets</Btn>
+            <Btn active={geoLevel==="market"}    onClick={() => { setGeoLevel("market"); setSelectedGeos([]); setDrillMkt(null); setExpandedGeo(null); }} color="#6366f1">Markets</Btn>
+            <Btn active={geoLevel==="submarket"} onClick={() => { setGeoLevel("submarket"); setSelectedGeos([]); setDrillMkt(null); setExpandedGeo(null); }} color="#6366f1">Submarkets</Btn>
           </div>
         </div>
 
@@ -1975,14 +1982,14 @@ export default function KalibriDashboard() {
               <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
                 <label style={label9}>View</label>
                 <div style={{ display:"flex", gap:2 }}>
-                  <Btn active={mapMode==="bubbles"} onClick={() => setMapMode("bubbles")} color="#3b82f6">Bubbles</Btn>
-                  <Btn active={mapMode==="pins"}    onClick={() => setMapMode("pins")} color="#3b82f6">Pins</Btn>
-                  {mapMode === "pins" && <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#8b5cf6">Ext. Stay</Btn>}
+                  <Btn active={mapMode==="bubbles"} onClick={() => setMapMode("bubbles")} color="#6366f1">Bubbles</Btn>
+                  <Btn active={mapMode==="pins"}    onClick={() => setMapMode("pins")} color="#6366f1">Pins</Btn>
+                  {mapMode === "pins" && <Btn active={mapExtStay} onClick={() => { setMapExtStay(v => !v); setMapBrands([]); }} color="#6366f1">Ext. Stay</Btn>}
                 </div>
               </div>
 
               {/* Market / Submarket pills — two-step drill-down */}
-              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, width:320, borderLeft:"1px solid #1e293b", paddingLeft:10 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, minWidth:260, maxWidth:420, borderLeft:"1px solid #1e293b", paddingLeft:10 }}>
                 {geoLevel === "market" ? (
                   <>
                     <label style={label9}>
@@ -2023,7 +2030,7 @@ export default function KalibriDashboard() {
                     </div>
                     {/* Step 2 — pick submarkets within focused market */}
                     {drillMkt && (
-                      <>
+                      <div style={{ borderLeft:"2px solid #f9741640", paddingLeft:8, marginTop:4 }}>
                         <label style={{ ...label9, marginTop:2 }}>
                           {drillMkt.replace(", OH","")} Submarkets
                           {selectedGeos.filter(g => g.startsWith(drillMkt + "::")).length > 0 && (
@@ -2041,7 +2048,7 @@ export default function KalibriDashboard() {
                             );
                           })}
                         </div>
-                      </>
+                      </div>
                     )}
                   </>
                 )}
@@ -2087,20 +2094,33 @@ export default function KalibriDashboard() {
               <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, borderLeft:"1px solid #1e293b", paddingLeft:10 }}>
                 <label style={label9}>Construct Connect {ccData.length > 0 && <span style={{ color:"#475569" }}>· {ccData.length.toLocaleString()} projects</span>}</label>
                 <div style={{ display:"flex", gap:2, flexWrap:"nowrap", alignItems:"center" }}>
-                  <Btn active={showCC} onClick={() => setShowCC(v => !v)} color="#06b6d4">{showCC ? "Hide" : "Show"} Layer</Btn>
+                  <Btn active={showCC} onClick={() => { setShowCC(v => !v); setCcStatusOpen(false); }} color="#06b6d4">{showCC ? "Hide" : "Show"} Layer</Btn>
                   {showCC && <>
+                    <span style={{ width:1, background:"#334155", alignSelf:"stretch", margin:"0 6px" }} />
                     <Btn active={ccTypeFilter==="all"}     onClick={() => setCcTypeFilter("all")}     color="#06b6d4">All</Btn>
                     <Btn active={ccTypeFilter==="hotel"}   onClick={() => setCcTypeFilter("hotel")}   color="#3b82f6">Hotel</Btn>
                     <Btn active={ccTypeFilter==="elderly"} onClick={() => setCcTypeFilter("elderly")} color="#8b5cf6">Elderly</Btn>
-                    <span style={{ width:1, background:"#1e293b", alignSelf:"stretch", margin:"0 4px" }} />
-                    {CC_STATUSES_ALL.map(s => (
-                      <Btn key={s} active={ccStatuses.includes(s)}
-                        onClick={() => setCcStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                        color={CC_STATUS_COLOR[s]} style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>
-                        {s}
+                    <span style={{ width:1, background:"#334155", alignSelf:"stretch", margin:"0 6px" }} />
+                    <div style={{ position:"relative" }}>
+                      <Btn active={ccStatuses.length > 0 || ccStatusOpen} onClick={() => setCcStatusOpen(v => !v)} color="#6366f1" style={{ display:"flex", alignItems:"center", gap:4 }}>
+                        Status{ccStatuses.length > 0 ? ` (${ccStatuses.length})` : ""} <span style={{ fontSize:9 }}>{ccStatusOpen ? "▲" : "▼"}</span>
                       </Btn>
-                    ))}
-                    {ccStatuses.length > 0 && <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, alignSelf:"center", marginLeft:4, flexShrink:0 }}>clear</span>}
+                      {ccStatusOpen && (
+                        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, display:"flex", flexDirection:"column", gap:2 }}>
+                          {ccStatuses.length > 0 && (
+                            <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>
+                          )}
+                          {CC_STATUSES_ALL.map(s => (
+                            <div key={s} onClick={() => setCcStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                              style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", padding:"4px 8px", borderRadius:4, background: ccStatuses.includes(s) ? CC_STATUS_COLOR[s]+"22" : "transparent" }}>
+                              <div style={{ width:8, height:8, background:CC_STATUS_COLOR[s], borderRadius:1, transform:"rotate(45deg)", flexShrink:0 }} />
+                              <span style={{ fontSize:11, color: ccStatuses.includes(s) ? CC_STATUS_COLOR[s] : "#94a3b8", flex:1 }}>{s}</span>
+                              {ccStatuses.includes(s) && <span style={{ color:CC_STATUS_COLOR[s], fontSize:10 }}>✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </>}
                 </div>
               </div>
