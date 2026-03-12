@@ -601,10 +601,12 @@ export default function KalibriDashboard() {
   const [cagrChartMetric,setCagrChartMetric]= useState("revpar_cagr");
 
   // supply tab
-  const [supplyData,     setSupplyData]     = useState([]);
-  const [expandedGeo,    setExpandedGeo]    = useState(null);
-  const [expandedTier,   setExpandedTier]   = useState("All Tier");
-  const [extStayOnly,    setExtStayOnly]    = useState(false);
+  const [supplyData,          setSupplyData]          = useState([]);
+  const [expandedGeo,         setExpandedGeo]         = useState(null);
+  const [expandedTier,        setExpandedTier]        = useState("All Tier");
+  const [extStayOnly,         setExtStayOnly]         = useState(false);
+  const [supplyFilterCompany, setSupplyFilterCompany] = useState([]);
+  const [supplyFilterBrand,   setSupplyFilterBrand]   = useState([]);
 
   // overview two-panel
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -1109,9 +1111,22 @@ export default function KalibriDashboard() {
       brandMap[key].properties.push(r.Property);
     }
     let brands = Object.values(brandMap).sort((a, b) => b.rooms - a.rooms);
-    if (extStayOnly) brands = brands.filter(b => EXTENDED_STAY_BRANDS.has(b.brand));
+    if (extStayOnly)                       brands = brands.filter(b => EXTENDED_STAY_BRANDS.has(b.brand));
+    if (supplyFilterCompany.length > 0)    brands = brands.filter(b => supplyFilterCompany.includes(b.company));
+    if (supplyFilterBrand.length > 0)      brands = brands.filter(b => supplyFilterBrand.includes(b.brand));
     return brands;
-  }, [expandedGeo, expandedTier, extStayOnly, supplyData, geoLevel]);
+  }, [expandedGeo, expandedTier, extStayOnly, supplyFilterCompany, supplyFilterBrand, supplyData, geoLevel]);
+
+  const supplyCompanies = useMemo(() =>
+    [...new Set(supplyData.map(r => r.Company))].filter(Boolean).sort()
+  , [supplyData]);
+
+  const supplyVisibleBrands = useMemo(() => {
+    let rows = supplyData;
+    if (extStayOnly)                    rows = rows.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
+    if (supplyFilterCompany.length > 0) rows = rows.filter(r => supplyFilterCompany.includes(r.Company));
+    return [...new Set(rows.map(r => r.Brand))].filter(Boolean).sort();
+  }, [supplyData, extStayOnly, supplyFilterCompany]);
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sel = {
@@ -1767,6 +1782,35 @@ export default function KalibriDashboard() {
         {/* ════ SUPPLY ════ */}
         {tab === "supply" && (
           <div>
+            {/* Supply tab controls */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:14, marginBottom:14, alignItems:"flex-end" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Filter</label>
+                <Btn active={extStayOnly} onClick={() => { setExtStayOnly(v => !v); setSupplyFilterBrand([]); }} color="#8b5cf6">Extended Stay</Btn>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Parent Company {supplyFilterCompany.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterCompany.length} selected</span>}{supplyFilterCompany.length > 0 && <span onClick={() => { setSupplyFilterCompany([]); setSupplyFilterBrand([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
+                <div style={PILL_ROW}>
+                  {supplyCompanies.map(c => (
+                    <Btn key={c} active={supplyFilterCompany.includes(c)}
+                      onClick={() => { setSupplyFilterCompany(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setSupplyFilterBrand([]); }}
+                      color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{c}</Btn>
+                  ))}
+                </div>
+              </div>
+              {(supplyFilterCompany.length > 0 || extStayOnly) && (
+                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                  <label style={label9}>Brand {supplyFilterBrand.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterBrand.length} selected</span>}{supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
+                  <div style={PILL_ROW}>
+                    {supplyVisibleBrands.map(b => (
+                      <Btn key={b} active={supplyFilterBrand.includes(b)}
+                        onClick={() => setSupplyFilterBrand(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
+                        color="#6366f1" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{b}</Btn>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <div style={{ fontSize:10, color:"#334155", marginBottom:10, fontFamily:"'IBM Plex Mono',monospace", display:"flex", gap:6, alignItems:"center" }}>
               <span style={{ color:"#60a5fa", fontWeight:600 }}>{supplyRows.length} {geoLevel === "market" ? "markets" : "submarkets"}</span>
               <span style={{ color:"#1a2540" }}>·</span>
@@ -1843,8 +1887,6 @@ export default function KalibriDashboard() {
                                       {t.replace(" Tier","") || "All"}
                                     </Btn>
                                   ))}
-                                  <span style={{ marginLeft:8, borderLeft:"1px solid #1e3a5f", paddingLeft:8 }} />
-                                  <Btn active={extStayOnly} onClick={e => { e.stopPropagation(); setExtStayOnly(v => !v); }} color="#8b5cf6">Extended Stay</Btn>
                                   <span style={{ marginLeft:4, fontSize:10, color:"#475569" }}>{supplyBrands.length} brands · {supplyBrands.reduce((s,b)=>s+b.rooms,0).toLocaleString()} rooms</span>
                                 </div>
                                 <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:11 }}>
