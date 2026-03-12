@@ -1329,7 +1329,7 @@ export default function KalibriDashboard() {
         </div>
 
         {/* Period */}
-        {tab !== "supply" && tab !== "map" && (
+        {(tab === "overview" || tab === "cagr") && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Period</label>
           <select value={period1} onChange={e => setPeriod1(e.target.value)} style={{ ...sel, minWidth:120, ...(isForecast(period1) ? { border:"1px solid #f59e0b55", color:"#fbbf24" } : {}) }}>
@@ -1353,8 +1353,8 @@ export default function KalibriDashboard() {
           </div>
         )}
 
-        {/* Include Forecast */}
-        {tab !== "supply" && tab !== "map" && (
+        {/* Include Forecast (overview + cagr only; trend has its own inline toggle) */}
+        {(tab === "overview" || tab === "cagr") && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Forecast</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -1582,6 +1582,13 @@ export default function KalibriDashboard() {
                   </div>
                 </div>
               )}
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Forecast</label>
+                <div style={{ display:"flex", gap:2 }}>
+                  <Btn active={showForecast}  onClick={() => setShowForecast(true)}  color="#f59e0b">Show</Btn>
+                  <Btn active={!showForecast} onClick={() => setShowForecast(false)}>Hide</Btn>
+                </div>
+              </div>
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={label9}>From</label>
                 <select value={trendStart} onChange={e => { setTrendStart(e.target.value); setTrendGeoSel(null); }} style={{ ...sel, minWidth:120 }}>
