@@ -1416,10 +1416,9 @@ export default function KalibriDashboard() {
                   </optgroup>
                 ))}
               </select>
-              <button onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")}
-                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", minWidth:34 }}>
+              <Btn active={true} onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")} color="#6366f1" style={{ minWidth:34 }}>
                 {sortDir === "desc" ? "↓" : "↑"}
-              </button>
+              </Btn>
             </div>
           </div>
         )}
@@ -1432,10 +1431,9 @@ export default function KalibriDashboard() {
               <select value={cagrSortKey} onChange={e => setCagrSortKey(e.target.value)} style={{ ...sel, minWidth:130 }}>
                 {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
               </select>
-              <button onClick={() => setCagrSortDir(d => d === "desc" ? "asc" : "desc")}
-                style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", minWidth:34 }}>
+              <Btn active={true} onClick={() => setCagrSortDir(d => d === "desc" ? "asc" : "desc")} color="#6366f1" style={{ minWidth:34 }}>
                 {cagrSortDir === "desc" ? "↓" : "↑"}
-              </button>
+              </Btn>
             </div>
           </div>
         )}
@@ -1614,7 +1612,7 @@ export default function KalibriDashboard() {
                   <label style={label9}>Axis Cap</label>
                   <div style={{ display:"flex", gap:2 }}>
                     {[null, 0.20, 0.30, 0.50].map(v => (
-                      <Btn key={String(v)} active={yoyClip===v} onClick={() => setYoyClip(v)} color="#8b5cf6">
+                      <Btn key={String(v)} active={yoyClip===v} onClick={() => setYoyClip(v)} color="#6366f1">
                         {v == null ? "None" : `±${v*100|0}%`}
                       </Btn>
                     ))}
