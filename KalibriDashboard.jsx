@@ -8,6 +8,12 @@ import {
 // Drop ohio_kalibri_consolidated.csv into your Replit /public folder.
 // To update: just overwrite that file and refresh — no code changes needed.
 const DATA_URL = "/ohio_kalibri_consolidated.csv";
+
+// ─── LAST ACTUAL PERIOD ───────────────────────────────────────────────────────
+// Set this to the last month of actual (non-forecast) data from Kalibri.
+// Format: "YYYY-MM"  e.g. "2026-01" for January 2026.
+// Update this whenever new actual data is loaded.
+const LAST_ACTUAL_OVERRIDE = "2026-01";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MONTH_MAP = {
@@ -101,7 +107,7 @@ function parseCSV(text) {
     };
   }
 
-  return { lookup, geoMeta, lastActual: lastActual || "2026-02" };
+  return { lookup, geoMeta, lastActual: LAST_ACTUAL_OVERRIDE || lastActual || "2026-01" };
 }
 
 async function loadData() {
@@ -928,7 +934,7 @@ export default function KalibriDashboard() {
   }, [tab, mapReady, supplyData, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
-  const lastActual      = useMemo(() => db?.lastActual || "2026-02", [db]);
+  const lastActual      = useMemo(() => db?.lastActual || LAST_ACTUAL_OVERRIDE || "2026-01", [db]);
   const geoMeta         = useMemo(() => db?.geoMeta || {}, [db]);
   const markets         = useMemo(() => [...new Set(Object.values(geoMeta).map(g => g.market).filter(Boolean))].sort(), [geoMeta]);
   const tw              = useMemo(() => TIME_WINDOWS.find(t => t.id === timeWindow) || TIME_WINDOWS[2], [timeWindow]);
