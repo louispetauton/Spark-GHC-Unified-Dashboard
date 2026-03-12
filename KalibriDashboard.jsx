@@ -1420,7 +1420,8 @@ export default function KalibriDashboard() {
                 <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:12 }}>
                   <thead>
                     <tr style={{ background:"#070f1e" }}>
-                      <th colSpan={geoLevel === "submarket" ? 3 : 2} style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655" }}>SUPPLY</th>
+                      <th colSpan={geoLevel === "submarket" ? 2 : 1} style={{ background:"#0c1a2e", padding:"3px 8px" }}></th>
+                      <th style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655" }}>SUPPLY</th>
                     </tr>
                     <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
                       <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W }}>
@@ -2002,16 +2003,13 @@ export default function KalibriDashboard() {
               {/* Construct Connect layer */}
               <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0, borderLeft:"1px solid #1e293b", paddingLeft:10 }}>
                 <label style={label9}>Construct Connect {ccData.length > 0 && <span style={{ color:"#475569" }}>· {ccData.length.toLocaleString()} projects</span>}</label>
-                <div style={{ display:"flex", gap:2 }}>
+                <div style={{ display:"flex", gap:2, flexWrap:"nowrap", alignItems:"center" }}>
                   <Btn active={showCC} onClick={() => setShowCC(v => !v)} color="#06b6d4">{showCC ? "Hide" : "Show"} Layer</Btn>
                   {showCC && <>
                     <Btn active={ccTypeFilter==="all"}     onClick={() => setCcTypeFilter("all")}     color="#06b6d4">All</Btn>
                     <Btn active={ccTypeFilter==="hotel"}   onClick={() => setCcTypeFilter("hotel")}   color="#3b82f6">Hotel</Btn>
                     <Btn active={ccTypeFilter==="elderly"} onClick={() => setCcTypeFilter("elderly")} color="#8b5cf6">Elderly</Btn>
-                  </>}
-                </div>
-                {showCC && (
-                  <div style={PILL_ROW}>
+                    <span style={{ width:1, background:"#1e293b", alignSelf:"stretch", margin:"0 4px" }} />
                     {CC_STATUSES_ALL.map(s => (
                       <Btn key={s} active={ccStatuses.includes(s)}
                         onClick={() => setCcStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
@@ -2020,8 +2018,8 @@ export default function KalibriDashboard() {
                       </Btn>
                     ))}
                     {ccStatuses.length > 0 && <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, alignSelf:"center", marginLeft:4, flexShrink:0 }}>clear</span>}
-                  </div>
-                )}
+                  </>}
+                </div>
               </div>
 
               {!mapReady && <span style={{ color:"#f59e0b", fontSize:11, alignSelf:"center", flexShrink:0 }}>Loading map…</span>}
