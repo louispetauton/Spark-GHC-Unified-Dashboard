@@ -591,6 +591,8 @@ export default function KalibriDashboard() {
   // trend
   const [trendMetric, setTrendMetric] = useState("revpar");
   const [yoyClip,     setYoyClip]     = useState(null); // null = no clip, else fraction e.g. 0.3
+  const [trendStart,  setTrendStart]  = useState("");
+  const [trendEnd,    setTrendEnd]    = useState("");
 
   // cagr
   const [cagrStart,      setCagrStart]      = useState("");
@@ -999,8 +1001,13 @@ export default function KalibriDashboard() {
     const isYoY = trendMetric.endsWith("_yoy");
     const applyClip = v => (isYoY && yoyClip != null && v != null) ? Math.max(-yoyClip, Math.min(yoyClip, v)) : v;
 
-    const chartData = filteredPeriods
-      .filter((_, i) => i % 3 === 0 || i === filteredPeriods.length - 1)
+    const trendPeriods = filteredPeriods.filter(p => {
+      if (trendStart && p < trendStart) return false;
+      if (trendEnd   && p > trendEnd)   return false;
+      return true;
+    });
+    const chartData = trendPeriods
+      .filter((_, i) => i % 3 === 0 || i === trendPeriods.length - 1)
       .map(p => {
         const row = { period: periodLabel(p), periodRaw: p };
         for (const geo of topGeos) {
@@ -1013,7 +1020,7 @@ export default function KalibriDashboard() {
       });
 
     return { series: topGeos.map(g => geoMeta[g]?.submarket || geoMeta[g]?.market || g), chartData };
-  }, [db, filteredGeos, period1, revType, tiers, losTiers, tw, periods, trendMetric, filteredPeriods, yoyClip]);
+  }, [db, filteredGeos, period1, revType, tiers, losTiers, tw, periods, trendMetric, filteredPeriods, yoyClip, trendStart, trendEnd]);
 
   // ── CAGR rows ──────────────────────────────────────────────────────────────
   const cagrRows = useMemo(() => {
@@ -1540,6 +1547,21 @@ export default function KalibriDashboard() {
                   </div>
                 </div>
               )}
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Start Period</label>
+                <select value={trendStart} onChange={e => setTrendStart(e.target.value)} style={{ ...sel, minWidth:120 }}>
+                  <option value="">All</option>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
+                </select>
+              </div>
+              <div style={{ alignSelf:"flex-end", paddingBottom:8, color:"#334155", fontSize:14 }}>→</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>End Period</label>
+                <select value={trendEnd} onChange={e => setTrendEnd(e.target.value)} style={{ ...sel, minWidth:120 }}>
+                  <option value="">All</option>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
+                </select>
+              </div>
               <div style={{ fontSize:11, color:"#475569", alignSelf:"flex-end", paddingBottom:6 }}>
                 Top 6 · <span style={{ color:"#94a3b8" }}>{revType}</span> · <span style={{ color:"#64748b" }}>{tw.label}</span>
               </div>
