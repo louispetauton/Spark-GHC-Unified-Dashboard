@@ -1420,8 +1420,7 @@ export default function KalibriDashboard() {
                 <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:12 }}>
                   <thead>
                     <tr style={{ background:"#070f1e" }}>
-                      <th colSpan={geoLevel === "submarket" ? 2 : 1} style={{ background:"#0c1a2e", padding:"3px 8px" }}></th>
-                      <th style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655" }}>SUPPLY</th>
+                      <th colSpan={geoLevel === "submarket" ? 3 : 2} style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"right", paddingRight:12, borderTop:"2px solid #3b82f655" }}>SUPPLY</th>
                     </tr>
                     <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
                       <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", width:MKT_W, minWidth:MKT_W, maxWidth:MKT_W }}>
