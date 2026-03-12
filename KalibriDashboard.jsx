@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from "react";
+import ReactDOM from "react-dom";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell, ReferenceArea,
@@ -571,6 +572,24 @@ function CustomTooltip({ active, payload, label, lastActual, metricKey }) {
   );
 }
 
+// Portal-based popover — renders to document.body, immune to overflow clipping
+function Popover({ anchorRef, open, children, minWidth = 200 }) {
+  const [style, setStyle] = React.useState(null);
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) { setStyle(null); return; }
+    const r = anchorRef.current.getBoundingClientRect();
+    const viewH = window.innerHeight;
+    const spaceBelow = viewH - r.bottom;
+    const goUp = spaceBelow < 300 && r.top > spaceBelow;
+    setStyle(goUp
+      ? { position:"fixed", left:r.left, bottom:viewH - r.top + 4, minWidth:Math.max(minWidth, r.width), zIndex:99999 }
+      : { position:"fixed", left:r.left, top:r.bottom + 4, minWidth:Math.max(minWidth, r.width), zIndex:99999 }
+    );
+  }, [open]);
+  if (!open || !style) return null;
+  return ReactDOM.createPortal(<div style={style}>{children}</div>, document.body);
+}
+
 export default function KalibriDashboard() {
   const [db,          setDb]          = useState(null);
   const [loading,     setLoading]     = useState(true);
@@ -637,7 +656,11 @@ export default function KalibriDashboard() {
   const [showCC,        setShowCC]       = useState(false);
   const [ccTypeFilter,  setCcTypeFilter] = useState("all"); // "all" | "hotel" | "elderly"
   const [ccStatuses,    setCcStatuses]   = useState([]);    // [] = all statuses
-  const mapInstanceRef = useRef(null);
+  const mapInstanceRef      = useRef(null);
+  const trendGeoRef         = useRef(null);
+  const supplyCompanyRef    = useRef(null);
+  const supplyBrandRef      = useRef(null);
+  const ccStatusRef         = useRef(null);
 
   useEffect(() => {
     loadData()
@@ -1628,15 +1651,15 @@ export default function KalibriDashboard() {
             {/* Geo selector — compact popover */}
             <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"center" }}>
               <span style={label9}>{geoLevel === "submarket" ? "Submarkets" : "Markets"}</span>
-              <div style={{ position:"relative" }}>
+              <div ref={trendGeoRef} style={{ position:"relative" }}>
                 <button onClick={() => setTrendGeoOpen(v => !v)} style={{
                   ...btnBase, background:"#1e293b", border:"1px solid #334155", color:"#94a3b8", gap:6,
                 }}>
                   {trendGeoSel ? `${trendGeoSel.length} selected` : `top 6 by ${periodLabel(trendEnd || period1) || "latest"}`}
                   {" "}<span style={{ fontSize:9 }}>{trendGeoOpen ? "▲" : "▼"}</span>
                 </button>
-                {trendGeoOpen && (
-                  <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:320, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                <Popover anchorRef={trendGeoRef} open={trendGeoOpen} minWidth={220}>
+                  <div style={{ background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:320, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
                     {trendGeoSel && (
                       <span onClick={() => { setTrendGeoSel(null); }} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>reset to top 6</span>
                     )}
@@ -1657,7 +1680,7 @@ export default function KalibriDashboard() {
                       );
                     })}
                   </div>
-                )}
+                </Popover>
               </div>
               {/* active geo color swatches */}
               {(trendGeoSel || trendData.top6)?.slice(0, 6).map((geo, i) => {
@@ -1870,12 +1893,12 @@ export default function KalibriDashboard() {
               {/* Parent Company dropdown */}
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={label9}>Parent Company {supplyFilterCompany.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterCompany.length}</span>}{supplyFilterCompany.length > 0 && <span onClick={() => { setSupplyFilterCompany([]); setSupplyFilterBrand([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
-                <div style={{ position:"relative" }}>
+                <div ref={supplyCompanyRef} style={{ position:"relative" }}>
                   <Btn active={supplyFilterCompany.length > 0 || supplyCompanyOpen} onClick={() => setSupplyCompanyOpen(v => !v)} color="#f97316" style={{ display:"flex", alignItems:"center", gap:4 }}>
                     {supplyFilterCompany.length > 0 ? `${supplyFilterCompany.length} selected` : "All"} <span style={{ fontSize:9 }}>{supplyCompanyOpen ? "▲" : "▼"}</span>
                   </Btn>
-                  {supplyCompanyOpen && (
-                    <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                  <Popover anchorRef={supplyCompanyRef} open={supplyCompanyOpen} minWidth={220}>
+                    <div style={{ background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
                       {supplyFilterCompany.length > 0 && <span onClick={() => { setSupplyFilterCompany([]); setSupplyFilterBrand([]); }} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>}
                       {supplyCompanies.map(c => (
                         <div key={c} onClick={() => { setSupplyFilterCompany(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setSupplyFilterBrand([]); }}
@@ -1886,7 +1909,7 @@ export default function KalibriDashboard() {
                         </div>
                       ))}
                     </div>
-                  )}
+                  </Popover>
                 </div>
               </div>
 
@@ -1894,12 +1917,12 @@ export default function KalibriDashboard() {
               {(supplyFilterCompany.length > 0 || extStayOnly) && supplyVisibleBrands.length > 0 && (
                 <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                   <label style={label9}>Brand {supplyFilterBrand.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterBrand.length}</span>}{supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
-                  <div style={{ position:"relative" }}>
+                  <div ref={supplyBrandRef} style={{ position:"relative" }}>
                     <Btn active={supplyFilterBrand.length > 0 || supplyBrandOpen} onClick={() => setSupplyBrandOpen(v => !v)} color="#6366f1" style={{ display:"flex", alignItems:"center", gap:4 }}>
                       {supplyFilterBrand.length > 0 ? `${supplyFilterBrand.length} selected` : `all ${supplyVisibleBrands.length}`} <span style={{ fontSize:9 }}>{supplyBrandOpen ? "▲" : "▼"}</span>
                     </Btn>
-                    {supplyBrandOpen && (
-                      <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:200, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                    <Popover anchorRef={supplyBrandRef} open={supplyBrandOpen} minWidth={200}>
+                      <div style={{ background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:200, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
                         {supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>}
                         {supplyVisibleBrands.map(b => (
                           <div key={b} onClick={() => setSupplyFilterBrand(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
@@ -1910,7 +1933,7 @@ export default function KalibriDashboard() {
                           </div>
                         ))}
                       </div>
-                    )}
+                    </Popover>
                   </div>
                 </div>
               )}
@@ -2183,12 +2206,12 @@ export default function KalibriDashboard() {
                   <Btn active={ccTypeFilter==="hotel"}   onClick={() => setCcTypeFilter("hotel")}   color="#3b82f6">Hotel</Btn>
                   <Btn active={ccTypeFilter==="elderly"} onClick={() => setCcTypeFilter("elderly")} color="#8b5cf6">Elderly</Btn>
                   <span style={{ width:1, background:"#334155", alignSelf:"stretch", margin:"0 6px" }} />
-                  <div style={{ position:"relative" }}>
+                  <div ref={ccStatusRef} style={{ position:"relative" }}>
                     <Btn active={ccStatuses.length > 0 || ccStatusOpen} onClick={() => setCcStatusOpen(v => !v)} color="#6366f1" style={{ display:"flex", alignItems:"center", gap:4 }}>
                       Status{ccStatuses.length > 0 ? ` (${ccStatuses.length})` : ""} <span style={{ fontSize:9 }}>{ccStatusOpen ? "▲" : "▼"}</span>
                     </Btn>
-                    {ccStatusOpen && (
-                      <div style={{ position:"absolute", bottom:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, display:"flex", flexDirection:"column", gap:2 }}>
+                    <Popover anchorRef={ccStatusRef} open={ccStatusOpen} minWidth={220}>
+                      <div style={{ background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, display:"flex", flexDirection:"column", gap:2 }}>
                         {ccStatuses.length > 0 && (
                           <span onClick={() => setCcStatuses([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>
                         )}
@@ -2201,7 +2224,7 @@ export default function KalibriDashboard() {
                           </div>
                         ))}
                       </div>
-                    )}
+                    </Popover>
                   </div>
                 </>}
               </div>
