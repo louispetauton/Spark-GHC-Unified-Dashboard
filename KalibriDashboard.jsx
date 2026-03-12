@@ -1761,8 +1761,8 @@ export default function KalibriDashboard() {
                 <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
                   {CAGR_SORT_OPTIONS.find(o => o.key === cagrChartMetric)?.label} · Top {Math.min(cagrRows.length, 20)} geographies · sorted by {CAGR_SORT_OPTIONS.find(o => o.key === cagrSortKey)?.label}
                 </div>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={cagrRows.slice(0, 20)} margin={{ top:10, right:30, bottom:80, left:20 }}>
+                <ResponsiveContainer width="100%" height={360}>
+                  <BarChart data={cagrRows.slice(0, 20)} margin={{ top:10, right:30, bottom:60, left:20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
                     <XAxis dataKey="label" tick={{ fill:"#475569", fontSize:9 }} angle={-45} textAnchor="end" height={80} interval={0}/>
                     <YAxis
