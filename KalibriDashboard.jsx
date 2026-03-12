@@ -597,9 +597,10 @@ export default function KalibriDashboard() {
   // trend
   const [trendMetric, setTrendMetric] = useState("revpar");
   const [yoyClip,     setYoyClip]     = useState(null);
-  const [trendGeoSel, setTrendGeoSel] = useState(null);
-  const [trendStart,  setTrendStart]  = useState("");
-  const [trendEnd,    setTrendEnd]    = useState("");
+  const [trendGeoSel,  setTrendGeoSel]  = useState(null);
+  const [trendGeoOpen, setTrendGeoOpen] = useState(false);
+  const [trendStart,   setTrendStart]   = useState("");
+  const [trendEnd,     setTrendEnd]     = useState("");
 
   // cagr
   const [cagrStart,      setCagrStart]      = useState("");
@@ -615,6 +616,10 @@ export default function KalibriDashboard() {
   const [extStayOnly,         setExtStayOnly]         = useState(false);
   const [supplyFilterCompany, setSupplyFilterCompany] = useState([]);
   const [supplyFilterBrand,   setSupplyFilterBrand]   = useState([]);
+  const [supplyCompanyOpen,   setSupplyCompanyOpen]   = useState(false);
+  const [supplyBrandOpen,     setSupplyBrandOpen]     = useState(false);
+  const [supplySortKey,       setSupplySortKey]       = useState("rooms");
+  const [supplySortDir,       setSupplySortDir]       = useState("desc");
 
   // overview two-panel
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -1097,6 +1102,11 @@ export default function KalibriDashboard() {
       filtered = filtered.filter(r => tierFilter.some(t => r.Tier.toLowerCase().includes(t.replace(" tier",""))));
     }
 
+    // Extended stay filter
+    if (extStayOnly) {
+      filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
+    }
+
     // Group by geo
     const geoMap = {};
     for (const r of filtered) {
@@ -1113,8 +1123,16 @@ export default function KalibriDashboard() {
       entry.tiers[t].props += 1;
     }
 
-    return Object.values(geoMap).sort((a, b) => b.rooms - a.rooms);
-  }, [supplyData, geoLevel, selectedGeos, tiers]);
+    const rows = Object.values(geoMap);
+    const dir = supplySortDir === "desc" ? -1 : 1;
+    rows.sort((a, b) => {
+      if (supplySortKey === "lower") return dir * ((b.tiers["Lower Tier"]?.rooms||0) - (a.tiers["Lower Tier"]?.rooms||0));
+      if (supplySortKey === "mid")   return dir * ((b.tiers["Mid Tier"]?.rooms||0)   - (a.tiers["Mid Tier"]?.rooms||0));
+      if (supplySortKey === "upper") return dir * ((b.tiers["Upper Tier"]?.rooms||0) - (a.tiers["Upper Tier"]?.rooms||0));
+      return dir * (b.rooms - a.rooms);
+    });
+    return rows;
+  }, [supplyData, geoLevel, selectedGeos, tiers, extStayOnly, supplySortKey, supplySortDir]);
 
   const supplyBrands = useMemo(() => {
     if (!expandedGeo || !supplyData.length) return [];
@@ -1329,7 +1347,7 @@ export default function KalibriDashboard() {
         </div>
 
         {/* Period */}
-        {(tab === "overview" || tab === "cagr") && (
+        {tab === "overview" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Period</label>
           <select value={period1} onChange={e => setPeriod1(e.target.value)} style={{ ...sel, minWidth:120, ...(isForecast(period1) ? { border:"1px solid #f59e0b55", color:"#fbbf24" } : {}) }}>
@@ -1609,35 +1627,54 @@ export default function KalibriDashboard() {
               </div>
             </div>
 
-            {/* Market selector */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12, alignItems:"center" }}>
-              <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1, marginRight:4 }}>Markets</span>
-              {filteredGeos.map((geo, i) => {
-                const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
-                const selected = trendGeoSel ? trendGeoSel.includes(geo) : trendData.top6?.includes(geo);
-                const colorIdx = (trendGeoSel ? trendGeoSel.indexOf(geo) : trendData.top6?.indexOf(geo)) % COLORS.length;
-                const color = selected ? COLORS[colorIdx >= 0 ? colorIdx : i % COLORS.length] : "#3b82f6";
+            {/* Geo selector — compact popover */}
+            <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"center" }}>
+              <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1 }}>
+                {geoLevel === "submarket" ? "Submarkets" : "Markets"}
+              </span>
+              <div style={{ position:"relative" }}>
+                <button onClick={() => setTrendGeoOpen(v => !v)} style={{
+                  ...btnBase, background:"#1e293b", border:"1px solid #334155", color:"#94a3b8", gap:6,
+                }}>
+                  {trendGeoSel ? `${trendGeoSel.length} selected` : `top 6 by ${periodLabel(trendEnd || period1) || "latest"}`}
+                  {" "}<span style={{ fontSize:9 }}>{trendGeoOpen ? "▲" : "▼"}</span>
+                </button>
+                {trendGeoOpen && (
+                  <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:320, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                    {trendGeoSel && (
+                      <span onClick={() => { setTrendGeoSel(null); }} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>reset to top 6</span>
+                    )}
+                    {filteredGeos.map((geo, i) => {
+                      const lbl = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
+                      const selected = trendGeoSel ? trendGeoSel.includes(geo) : trendData.top6?.includes(geo);
+                      const colorIdx = (trendGeoSel ? trendGeoSel.indexOf(geo) : trendData.top6?.indexOf(geo));
+                      const color = selected ? COLORS[(colorIdx >= 0 ? colorIdx : i) % COLORS.length] : "#475569";
+                      return (
+                        <div key={geo} onClick={() => {
+                          const current = trendGeoSel || trendData.top6 || [];
+                          setTrendGeoSel(current.includes(geo) ? current.filter(g => g !== geo) : [...current, geo]);
+                        }} style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", padding:"4px 8px", borderRadius:4, background: selected ? "#1e293b" : "transparent" }}>
+                          <div style={{ width:8, height:8, borderRadius:2, background: selected ? color : "#1e293b", flexShrink:0 }}/>
+                          <span style={{ fontSize:11, color: selected ? "#cbd5e1" : "#475569", flex:1 }}>{lbl}</span>
+                          {selected && <span style={{ color, fontSize:10 }}>✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {/* active geo color swatches */}
+              {(trendGeoSel || trendData.top6)?.slice(0, 6).map((geo, i) => {
+                const lbl = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
                 return (
-                  <div key={geo} onClick={() => {
-                    const current = trendGeoSel || trendData.top6 || [];
-                    if (current.includes(geo)) {
-                      setTrendGeoSel(current.filter(g => g !== geo));
-                    } else {
-                      setTrendGeoSel([...current, geo]);
-                    }
-                  }} style={{ display:"flex", alignItems:"center", gap:5, background: selected ? "#1e293b" : "#0f172a",
-                    border: selected ? `1px solid ${color}55` : "1px solid #1e293b",
-                    borderRadius:4, padding:"3px 10px", cursor:"pointer", opacity: selected ? 1 : 0.4 }}>
-                    {selected && <div style={{ width:8, height:8, borderRadius:2, background:color }}/>}
-                    <span style={{ fontSize:10, color: selected ? "#cbd5e1" : "#475569" }}>{label}</span>
+                  <div key={geo} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                    <div style={{ width:8, height:8, borderRadius:2, background:COLORS[i % COLORS.length], flexShrink:0 }}/>
+                    <span style={{ fontSize:10, color:"#94a3b8" }}>{lbl}</span>
                   </div>
                 );
               })}
-              {trendGeoSel && (
-                <span onClick={() => setTrendGeoSel(null)} style={{ fontSize:10, color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>reset to top 6</span>
-              )}
               {showForecast && (
-                <div style={{ display:"flex", alignItems:"center", gap:5, background:"#f59e0b11", border:"1px solid #f59e0b33", borderRadius:4, padding:"3px 10px", marginLeft:8 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:5, background:"#f59e0b11", border:"1px solid #f59e0b33", borderRadius:4, padding:"3px 10px", marginLeft:4 }}>
                   <div style={{ width:8, height:8, borderRadius:2, background:"#f59e0b44", border:"1px dashed #f59e0b" }}/>
                   <span style={{ fontSize:10, color:"#f59e0b" }}>Forecast</span>
                 </div>
@@ -1729,7 +1766,7 @@ export default function KalibriDashboard() {
 
             {/* Bar chart */}
             {cagrRows.length > 0 && (
-              <div style={{ marginBottom:10 }}>
+              <div style={{ marginBottom:2 }}>
                 <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
                   {CAGR_SORT_OPTIONS.find(o => o.key === cagrChartMetric)?.label} · Top {Math.min(cagrRows.length, 20)} geographies · sorted by {CAGR_SORT_OPTIONS.find(o => o.key === cagrSortKey)?.label}
                 </div>
@@ -1835,25 +1872,50 @@ export default function KalibriDashboard() {
                 <label style={label9}>Filter</label>
                 <Btn active={extStayOnly} onClick={() => { setExtStayOnly(v => !v); setSupplyFilterBrand([]); }} color="#8b5cf6">Extended Stay</Btn>
               </div>
+              {/* Parent Company dropdown */}
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={label9}>Parent Company {supplyFilterCompany.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterCompany.length} selected</span>}{supplyFilterCompany.length > 0 && <span onClick={() => { setSupplyFilterCompany([]); setSupplyFilterBrand([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
-                <div style={PILL_ROW}>
-                  {supplyCompanies.map(c => (
-                    <Btn key={c} active={supplyFilterCompany.includes(c)}
-                      onClick={() => { setSupplyFilterCompany(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setSupplyFilterBrand([]); }}
-                      color="#f97316" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{c}</Btn>
-                  ))}
+                <label style={label9}>Parent Company {supplyFilterCompany.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterCompany.length}</span>}{supplyFilterCompany.length > 0 && <span onClick={() => { setSupplyFilterCompany([]); setSupplyFilterBrand([]); }} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
+                <div style={{ position:"relative" }}>
+                  <Btn active={supplyFilterCompany.length > 0 || supplyCompanyOpen} onClick={() => setSupplyCompanyOpen(v => !v)} color="#f97316" style={{ display:"flex", alignItems:"center", gap:4 }}>
+                    {supplyFilterCompany.length > 0 ? `${supplyFilterCompany.length} selected` : "All"} <span style={{ fontSize:9 }}>{supplyCompanyOpen ? "▲" : "▼"}</span>
+                  </Btn>
+                  {supplyCompanyOpen && (
+                    <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:220, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                      {supplyFilterCompany.length > 0 && <span onClick={() => { setSupplyFilterCompany([]); setSupplyFilterBrand([]); }} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>}
+                      {supplyCompanies.map(c => (
+                        <div key={c} onClick={() => { setSupplyFilterCompany(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]); setSupplyFilterBrand([]); }}
+                          style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", padding:"4px 8px", borderRadius:4, background: supplyFilterCompany.includes(c) ? "#f9731622" : "transparent" }}>
+                          <div style={{ width:8, height:8, borderRadius:"50%", background: supplyFilterCompany.includes(c) ? "#f97316" : "#334155", flexShrink:0 }}/>
+                          <span style={{ fontSize:11, color: supplyFilterCompany.includes(c) ? "#fed7aa" : "#94a3b8", flex:1 }}>{c}</span>
+                          {supplyFilterCompany.includes(c) && <span style={{ color:"#f97316", fontSize:10 }}>✓</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Brand dropdown */}
               {(supplyFilterCompany.length > 0 || extStayOnly) && supplyVisibleBrands.length > 0 && (
                 <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                  <label style={label9}>Brand {supplyFilterBrand.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterBrand.length} selected</span>}{supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
-                  <div style={PILL_ROW}>
-                    {supplyVisibleBrands.map(b => (
-                      <Btn key={b} active={supplyFilterBrand.includes(b)}
-                        onClick={() => setSupplyFilterBrand(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
-                        color="#6366f1" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{b}</Btn>
-                    ))}
+                  <label style={label9}>Brand {supplyFilterBrand.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterBrand.length}</span>}{supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
+                  <div style={{ position:"relative" }}>
+                    <Btn active={supplyFilterBrand.length > 0 || supplyBrandOpen} onClick={() => setSupplyBrandOpen(v => !v)} color="#6366f1" style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      {supplyFilterBrand.length > 0 ? `${supplyFilterBrand.length} selected` : `all ${supplyVisibleBrands.length}`} <span style={{ fontSize:9 }}>{supplyBrandOpen ? "▲" : "▼"}</span>
+                    </Btn>
+                    {supplyBrandOpen && (
+                      <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:9999, background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"8px 6px", minWidth:200, maxHeight:300, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+                        {supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", fontSize:10, padding:"0 4px 4px", borderBottom:"1px solid #1e293b", marginBottom:2 }}>clear all</span>}
+                        {supplyVisibleBrands.map(b => (
+                          <div key={b} onClick={() => setSupplyFilterBrand(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])}
+                            style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", padding:"4px 8px", borderRadius:4, background: supplyFilterBrand.includes(b) ? "#6366f122" : "transparent" }}>
+                            <div style={{ width:8, height:8, borderRadius:"50%", background: supplyFilterBrand.includes(b) ? "#6366f1" : "#334155", flexShrink:0 }}/>
+                            <span style={{ fontSize:11, color: supplyFilterBrand.includes(b) ? "#c7d2fe" : "#94a3b8", flex:1 }}>{b}</span>
+                            {supplyFilterBrand.includes(b) && <span style={{ color:"#6366f1", fontSize:10 }}>✓</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1875,18 +1937,31 @@ export default function KalibriDashboard() {
                       Supply — Active Properties
                     </th>
                   </tr>
-                  <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
-                    <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:160 }}>
-                      {geoLevel === "submarket" ? "Submarket" : "Market"}
-                    </th>
-                    {geoLevel === "submarket" && (
-                      <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:100 }}>Market</th>
-                    )}
-                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:90 }}>Total Rooms (Props)</th>
-                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#f87171", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:100 }}>Lower Tier</th>
-                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#fbbf24", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:100 }}>Mid Tier</th>
-                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#34d399", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:100 }}>Upper Tier</th>
-                  </tr>
+                  {(() => {
+                    const SortTh = ({ sk, color, children, style={} }) => {
+                      const active = supplySortKey === sk;
+                      return (
+                        <th onClick={() => { if (active) setSupplySortDir(d => d === "desc" ? "asc" : "desc"); else { setSupplySortKey(sk); setSupplySortDir("desc"); } }}
+                          style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color: active ? color : "#475569", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:100, cursor:"pointer", userSelect:"none", ...style }}>
+                          {children} {active ? (supplySortDir === "desc" ? "↓" : "↑") : ""}
+                        </th>
+                      );
+                    };
+                    return (
+                      <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
+                        <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:160 }}>
+                          {geoLevel === "submarket" ? "Submarket" : "Market"}
+                        </th>
+                        {geoLevel === "submarket" && (
+                          <th style={{ padding:"7px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, minWidth:100 }}>Market</th>
+                        )}
+                        <SortTh sk="rooms" color="#60a5fa" style={{ minWidth:90 }}>Total Rooms (Props)</SortTh>
+                        <SortTh sk="lower" color="#f87171">Lower Tier</SortTh>
+                        <SortTh sk="mid"   color="#fbbf24">Mid Tier</SortTh>
+                        <SortTh sk="upper" color="#34d399">Upper Tier</SortTh>
+                      </tr>
+                    );
+                  })()}
                 </thead>
                 <tbody>
                   {supplyRows.map((row, i) => {
