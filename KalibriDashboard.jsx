@@ -1177,7 +1177,7 @@ export default function KalibriDashboard() {
     borderRadius:6, padding:"0 10px", height:28, fontSize:11, outline:"none", cursor:"pointer",
   };
   const btnBase = { padding:"0 12px", height:28, borderRadius:5, border:"none", cursor:"pointer", fontSize:11, fontWeight:600, display:"inline-flex", alignItems:"center", justifyContent:"center", whiteSpace:"nowrap" };
-  const Btn = ({ active, onClick, children, color="#3b82f6", style={} }) => (
+  const Btn = ({ active, onClick, children, color="#6366f1", style={} }) => (
     <button onClick={onClick} style={{
       ...btnBase,
       background: active ? color     : "#1e293b",
@@ -1386,7 +1386,7 @@ export default function KalibriDashboard() {
         {tab === "overview" && (
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
             <label style={label9}>Sort By</label>
-            <div style={{ display:"flex", gap:4 }}>
+            <div style={{ display:"flex", gap:2 }}>
               <select value={sortKey} onChange={e => setSortKey(e.target.value)} style={{ ...sel, minWidth:130 }}>
                 {METRICS.map(m => (
                   <optgroup key={m.key} label={m.label}>
@@ -1407,7 +1407,7 @@ export default function KalibriDashboard() {
         {tab === "cagr" && (
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
             <label style={label9}>Sort By</label>
-            <div style={{ display:"flex", gap:4 }}>
+            <div style={{ display:"flex", gap:2 }}>
               <select value={cagrSortKey} onChange={e => setCagrSortKey(e.target.value)} style={{ ...sel, minWidth:130 }}>
                 {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
               </select>
@@ -1629,9 +1629,7 @@ export default function KalibriDashboard() {
 
             {/* Geo selector — compact popover */}
             <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"center" }}>
-              <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1 }}>
-                {geoLevel === "submarket" ? "Submarkets" : "Markets"}
-              </span>
+              <span style={label9}>{geoLevel === "submarket" ? "Submarkets" : "Markets"}</span>
               <div style={{ position:"relative" }}>
                 <button onClick={() => setTrendGeoOpen(v => !v)} style={{
                   ...btnBase, background:"#1e293b", border:"1px solid #334155", color:"#94a3b8", gap:6,
@@ -1681,7 +1679,7 @@ export default function KalibriDashboard() {
               )}
             </div>
 
-            <ResponsiveContainer width="100%" height={420}>
+            <ResponsiveContainer width="100%" height={400}>
               <LineChart data={trendData.chartData} margin={{ top:10, right:30, bottom:80, left:20 }}>
                 {showForecast && forecastStartLabel && (
                   <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
@@ -1728,7 +1726,7 @@ export default function KalibriDashboard() {
                   {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}{isForecast(p) ? " ◆" : ""}</option>)}
                 </select>
               </div>
-              <div style={{ fontSize:11, color:"#64748b", alignSelf:"flex-end", paddingBottom:6 }}>
+              <div style={{ fontSize:11, color:"#475569", alignSelf:"flex-end", paddingBottom:6 }}>
                 {(() => {
                   const p1p = cagrStart.split("-"), p2p = cagrEnd.split("-");
                   const y = (parseInt(p2p[0]) - parseInt(p1p[0])) + (parseInt(p2p[1]) - parseInt(p1p[1])) / 12;
@@ -1743,8 +1741,7 @@ export default function KalibriDashboard() {
                   {CAGR_SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                 </select>
               </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={label9}>&nbsp;</label>
+              <div style={{ display:"flex", flexDirection:"column", gap:3, justifyContent:"flex-end" }}>
                 <button onClick={() => {
                   const cols = [
                     ...(geoLevel === "submarket" ? [{ label:"Market", get: r => r.mkt }] : []),
@@ -1770,8 +1767,8 @@ export default function KalibriDashboard() {
                 <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
                   {CAGR_SORT_OPTIONS.find(o => o.key === cagrChartMetric)?.label} · Top {Math.min(cagrRows.length, 20)} geographies · sorted by {CAGR_SORT_OPTIONS.find(o => o.key === cagrSortKey)?.label}
                 </div>
-                <ResponsiveContainer width="100%" height={380}>
-                  <BarChart data={cagrRows.slice(0, 20)} margin={{ top:5, right:20, bottom:90, left:20 }}>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={cagrRows.slice(0, 20)} margin={{ top:10, right:30, bottom:80, left:20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
                     <XAxis dataKey="label" tick={{ fill:"#475569", fontSize:9 }} angle={-45} textAnchor="end" height={80} interval={0}/>
                     <YAxis
