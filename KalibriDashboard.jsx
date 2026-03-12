@@ -1831,7 +1831,7 @@ export default function KalibriDashboard() {
                   ))}
                 </div>
               </div>
-              {(supplyFilterCompany.length > 0 || extStayOnly) && (
+              {(supplyFilterCompany.length > 0 || extStayOnly) && supplyVisibleBrands.length > 0 && (
                 <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                   <label style={label9}>Brand {supplyFilterBrand.length > 0 && <span style={{ color:"#475569" }}>· {supplyFilterBrand.length} selected</span>}{supplyFilterBrand.length > 0 && <span onClick={() => setSupplyFilterBrand([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}</label>
                   <div style={PILL_ROW}>
@@ -1912,15 +1912,8 @@ export default function KalibriDashboard() {
                           <tr key={row.geo+"_exp"}>
                             <td colSpan={geoLevel === "submarket" ? 6 : 5} style={{ padding:0, background:"#0a1628", borderBottom:"2px solid #334155" }}>
                               <div style={{ padding:"12px 20px" }}>
-                                <div style={{ display:"flex", gap:6, marginBottom:10, alignItems:"center" }}>
-                                  <span style={{ fontSize:9, color:"#475569", textTransform:"uppercase", letterSpacing:1 }}>Filter Class</span>
-                                  {["All Tier","Lower Tier","Mid Tier","Upper Tier"].map(t => (
-                                    <Btn key={t} active={expandedTier===t} onClick={e => { e.stopPropagation(); setExpandedTier(t); }}
-                                      color={t==="Lower Tier"?"#ef4444":t==="Mid Tier"?"#f59e0b":t==="Upper Tier"?"#10b981":"#3b82f6"}>
-                                      {t.replace(" Tier","") || "All"}
-                                    </Btn>
-                                  ))}
-                                  <span style={{ marginLeft:4, fontSize:10, color:"#475569" }}>{supplyBrands.length} brands · {supplyBrands.reduce((s,b)=>s+b.rooms,0).toLocaleString()} rooms</span>
+                                <div style={{ marginBottom:10, fontSize:10, color:"#475569" }}>
+                                  {supplyBrands.length} brands · {supplyBrands.reduce((s,b)=>s+b.rooms,0).toLocaleString()} rooms
                                 </div>
                                 <table style={{ borderCollapse:"separate", borderSpacing:0, width:"100%", fontSize:11 }}>
                                   <thead>
