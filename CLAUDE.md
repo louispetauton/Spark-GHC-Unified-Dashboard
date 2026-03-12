@@ -21,4 +21,4 @@ fuser -k 5000/tcp 5001/tcp 5002/tcp && npm run dev
 ```bash
 npm run dev
 ```
-Runs on `http://localhost:5000` (or next available port if occupied).
+Runs on `http://localhost:5173`. Replit infrastructure permanently occupies ports 3000 and 3001 — Vite must use 5173.
