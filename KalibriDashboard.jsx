@@ -581,9 +581,11 @@ function Popover({ anchorRef, open, children, minWidth = 200 }) {
     const viewH = window.innerHeight;
     const spaceBelow = viewH - r.bottom;
     const goUp = spaceBelow < 300 && r.top > spaceBelow;
+    const w = Math.max(minWidth, r.width);
+    const left = Math.min(r.left, window.innerWidth - w - 8);
     setStyle(goUp
-      ? { position:"fixed", left:r.left, bottom:viewH - r.top + 4, minWidth:Math.max(minWidth, r.width), zIndex:99999 }
-      : { position:"fixed", left:r.left, top:r.bottom + 4, minWidth:Math.max(minWidth, r.width), zIndex:99999 }
+      ? { position:"fixed", left:Math.max(8, left), bottom:viewH - r.top + 4, minWidth:w, zIndex:99999 }
+      : { position:"fixed", left:Math.max(8, left), top:r.bottom + 4, minWidth:w, zIndex:99999 }
     );
   }, [open]);
   if (!open || !style) return null;
