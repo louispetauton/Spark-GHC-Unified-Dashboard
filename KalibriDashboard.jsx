@@ -982,21 +982,19 @@ export default function KalibriDashboard() {
       const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
       const mkt   = geoMeta[geo]?.market || "";
 
-      let displayM = m;
-      if (ovStart) {
-        const ms = computeTrailing(db.lookup, ovStart, geo, revType, tiers, losTiers, tw, periods);
-        if (ms) {
-          const chg = (v, b, isOcc) => v != null && b != null ? (isOcc ? v - b : (b > 0 ? v / b - 1 : null)) : null;
-          displayM = {
-            ...m,
-            occ_yoy:          chg(m.occ,          ms.occ,          true),
-            adr_yoy:          chg(m.adr,          ms.adr,          false),
-            revpar_yoy:       chg(m.revpar,       ms.revpar,       false),
-            booking_cost_yoy: chg(m.booking_cost, ms.booking_cost, false),
-            alos_yoy:         chg(m.alos,         ms.alos,         false),
-          };
-        }
-      }
+      // Always compute YoY from raw values so Prior Year and manual selection are consistent
+      const [py, pmo] = period1.split("-");
+      const compareDate = ovStart || `${parseInt(py)-1}-${pmo}`;
+      const ms = computeTrailing(db.lookup, compareDate, geo, revType, tiers, losTiers, tw, periods);
+      const chg = (v, b, isOcc) => v != null && b != null ? (isOcc ? v - b : (b > 0 ? v / b - 1 : null)) : null;
+      let displayM = ms ? {
+        ...m,
+        occ_yoy:          chg(m.occ,          ms.occ,          true),
+        adr_yoy:          chg(m.adr,          ms.adr,          false),
+        revpar_yoy:       chg(m.revpar,       ms.revpar,       false),
+        booking_cost_yoy: chg(m.booking_cost, ms.booking_cost, false),
+        alos_yoy:         chg(m.alos,         ms.alos,         false),
+      } : m;
       return { geo, label, mkt, m: displayM };
     }).filter(Boolean);
 
