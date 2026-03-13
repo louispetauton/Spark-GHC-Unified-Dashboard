@@ -685,10 +685,11 @@ export default function KalibriDashboard() {
         const priorYear  = `${parseInt(y) - 1}-${mo}`;
         const sixYrPrior = `${parseInt(y) - 6}-${mo}`;
         setPeriod1(latestActual);
+        const threeYrPrior = `${parseInt(y) - 3}-${mo}`;
         setCagrEnd(latestActual);
-        setCagrStart(allPeriods.includes(sixYrPrior) ? sixYrPrior : allPeriods[0]);
+        setCagrStart(allPeriods.includes(threeYrPrior) ? threeYrPrior : allPeriods[0]);
         setScoreCagrEnd(latestActual);
-        setScoreCagrStart(allPeriods.includes(sixYrPrior) ? sixYrPrior : allPeriods[0]);
+        setScoreCagrStart(allPeriods.includes(threeYrPrior) ? threeYrPrior : allPeriods[0]);
       })
       .catch(e => { setLoadError(e.message); setLoading(false); });
 
