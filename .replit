@@ -2,8 +2,15 @@ run = "npm run dev"
 modules = ["nodejs-20"]
 
 [[ports]]
-localPort = 3000
+localPort = 5173
 externalPort = 80
+
+[deployment]
+publicDir = "dist"
+
+[deployment]
+publicDir = "dist"
+build = ["npm", "run", "build"]
 
 [agent]
 expertMode = true
