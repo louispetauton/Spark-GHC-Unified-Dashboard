@@ -7,6 +7,7 @@ externalPort = 80
 
 [deployment]
 publicDir = "dist"
+buildCommand = "npm run build"
 
 [agent]
 expertMode = true
