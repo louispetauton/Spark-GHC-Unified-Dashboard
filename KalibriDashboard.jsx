@@ -2327,7 +2327,7 @@ export default function KalibriDashboard() {
                 <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
                   Composite Score · {scoreRows.length} {geoLevel === "market" ? "markets" : "submarkets"} · {scoreRevType}
                 </div>
-                <ResponsiveContainer width="100%" height={scoreRows.length * 24 + 60}>
+                <ResponsiveContainer width="100%" height={Math.min(500, scoreRows.length * 16 + 40)}>
                   <BarChart data={scoreRows} layout="vertical" margin={{ top:4, right:60, bottom:4, left:220 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false}/>
                     <XAxis type="number" domain={[0, 100]} tick={{ fill:"#475569", fontSize:9 }} tickFormatter={v => v.toFixed(0)}/>
@@ -2337,7 +2337,7 @@ export default function KalibriDashboard() {
                       formatter={(v) => [v != null ? v.toFixed(1) : "—", "Score"]}
                       labelStyle={{ color:"#94a3b8" }}
                     />
-                    <Bar dataKey="composite" radius={[0,3,3,0]} barSize={14}>
+                    <Bar dataKey="composite" radius={[0,3,3,0]} barSize={8}>
                       {scoreRows.map((row, i) => (
                         <Cell key={i} fill={i < 5 ? "#10b981" : "#3b82f6"}/>
                       ))}
