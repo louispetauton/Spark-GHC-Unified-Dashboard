@@ -633,8 +633,8 @@ export default function KalibriDashboard() {
 
   // score tab
   const [scoreRevType,    setScoreRevType]    = useState("Guest Paid");
-  const [scoreLosW,       setScoreLosW]       = useState({ "": 1, "0-6": 1, "7-14": 1, "15-29": 1, "30+": 1 });
-  const [scoreTierW,      setScoreTierW]      = useState({ "Lower Tier": 1, "Mid Tier": 1, "Upper Tier": 1 });
+  const [scoreLos,        setScoreLos]        = useState([""]); // array of selected LOS tier ids, default Overview
+  const [scoreTier,       setScoreTier]       = useState(["Lower", "Mid", "Upper"]); // array of selected tier ids, default all
   const [scoreMetricW,    setScoreMetricW]    = useState({ revpar:1, revpar_cagr:1, occ:1, occ_cagr:1, adr:1, adr_cagr:1, alos:1 });
   const [scoreSupplyW,    setScoreSupplyW]    = useState(0); // -10 to +10
   const [scoreCagrStart,  setScoreCagrStart]  = useState("");
@@ -1209,16 +1209,11 @@ export default function KalibriDashboard() {
     if (!db || !filteredGeos.length) return [];
 
     const endPeriod = lastActual;
-    const LOS_KEYS = ["", "0-6", "7-14", "15-29", "30+"];
-    const TIER_KEYS = ["Lower Tier", "Mid Tier", "Upper Tier"];
 
-    // Normalize weight maps
-    const losSum = LOS_KEYS.reduce((s, k) => s + (scoreLosW[k] || 0), 0);
-    const tierSum = TIER_KEYS.reduce((s, k) => s + (scoreTierW[k] || 0), 0);
-    const normalizedLosW = {};
-    LOS_KEYS.forEach(k => { normalizedLosW[k] = losSum > 0 ? (scoreLosW[k] || 0) / losSum : 1 / LOS_KEYS.length; });
-    const normalizedTierW = {};
-    TIER_KEYS.forEach(k => { normalizedTierW[k] = tierSum > 0 ? (scoreTierW[k] || 0) / tierSum : 1 / TIER_KEYS.length; });
+    // Map scoreTier short names to full tier keys used in data
+    const TIER_MAP = { "Lower": "Lower Tier", "Mid": "Mid Tier", "Upper": "Upper Tier" };
+    const activeTiers = scoreTier.map(t => TIER_MAP[t]).filter(Boolean);
+    const activeLos   = scoreLos;
 
     // CAGR years
     let cagrYears = 0;
@@ -1231,55 +1226,32 @@ export default function KalibriDashboard() {
     const twMo = TIME_WINDOWS.find(t => t.id === "mo");
 
     const rawData = filteredGeos.map(geo => {
-      // Blend metrics across LOS x Tier combos
-      const blendMetric = (getVal) => {
-        let total = 0, weightSum = 0;
-        for (const los of LOS_KEYS) {
-          for (const tier of TIER_KEYS) {
-            const lw = normalizedLosW[los] || 0;
-            const tw2 = normalizedTierW[tier] || 0;
-            if (lw === 0 || tw2 === 0) continue;
-            const val = getVal(los, tier);
-            if (val == null || !isFinite(val)) continue;
-            total += lw * tw2 * val;
-            weightSum += lw * tw2;
-          }
-        }
-        return weightSum > 0 ? total / weightSum : null;
-      };
+      // Single computeTrailing call with selected arrays — handles multi-LOS and multi-Tier aggregation
+      const m = computeTrailing(db.lookup, endPeriod, geo, scoreRevType, activeTiers, activeLos, tw, periods);
 
-      const getV = (los, tier) => {
-        const m = computeTrailing(db.lookup, endPeriod, geo, scoreRevType, [tier], [los], tw, periods);
-        return m || null;
-      };
-
-      const revpar = blendMetric((los, tier) => getV(los, tier)?.revpar);
-      const occ    = blendMetric((los, tier) => getV(los, tier)?.occ);
-      const adr    = blendMetric((los, tier) => getV(los, tier)?.adr);
-      const alos   = blendMetric((los, tier) => getV(los, tier)?.alos);
+      const revpar = m?.revpar ?? null;
+      const occ    = m?.occ    ?? null;
+      const adr    = m?.adr    ?? null;
+      const alos   = m?.alos   ?? null;
 
       // CAGR
       let revpar_cagr = null, occ_cagr = null, adr_cagr = null;
       if (cagrYears > 0 && scoreCagrStart && scoreCagrEnd) {
-        const revpar_s = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrStart, geo, scoreRevType, [tier], [los], twMo, periods)?.revpar);
-        const revpar_e = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrEnd,   geo, scoreRevType, [tier], [los], twMo, periods)?.revpar);
-        const occ_s    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrStart, geo, scoreRevType, [tier], [los], twMo, periods)?.occ);
-        const occ_e    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrEnd,   geo, scoreRevType, [tier], [los], twMo, periods)?.occ);
-        const adr_s    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrStart, geo, scoreRevType, [tier], [los], twMo, periods)?.adr);
-        const adr_e    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrEnd,   geo, scoreRevType, [tier], [los], twMo, periods)?.adr);
-        revpar_cagr = calcCAGR(revpar_s, revpar_e, cagrYears);
-        occ_cagr    = occ_s != null && occ_e != null && occ_s > 0 ? Math.pow(occ_e / occ_s, 1 / cagrYears) - 1 : null;
-        adr_cagr    = calcCAGR(adr_s, adr_e, cagrYears);
+        const ms = computeTrailing(db.lookup, scoreCagrStart, geo, scoreRevType, activeTiers, activeLos, twMo, periods);
+        const me = computeTrailing(db.lookup, scoreCagrEnd,   geo, scoreRevType, activeTiers, activeLos, twMo, periods);
+        revpar_cagr = calcCAGR(ms?.revpar, me?.revpar, cagrYears);
+        occ_cagr    = ms?.occ != null && me?.occ != null && ms.occ > 0 ? Math.pow(me.occ / ms.occ, 1 / cagrYears) - 1 : null;
+        adr_cagr    = calcCAGR(ms?.adr,    me?.adr,    cagrYears);
       }
 
-      // Supply (tier-weighted by scoreTierW)
-      let roomsNum = 0, roomsDen = 0;
-      for (const tier of TIER_KEYS) {
-        const tw2 = scoreTierW[tier] || 0;
-        const r = SUPPLY[geo]?.[tier]?.rooms || 0;
-        if (r > 0) { roomsNum += tw2 * r; roomsDen += tw2; }
+      // Supply: sum rooms from SUPPLY for selected tiers only
+      const tierKeys = scoreTier.map(t => TIER_MAP[t]).filter(Boolean);
+      let rooms = null;
+      if (tierKeys.length > 0) {
+        const totalRooms = tierKeys.reduce((s, tk) => s + (SUPPLY[geo]?.[tk]?.rooms || 0), 0);
+        rooms = totalRooms > 0 ? totalRooms : null;
       }
-      const rooms = roomsDen > 0 ? roomsNum / roomsDen : (SUPPLY[geo]?.["All Tier"]?.rooms || null);
+      if (rooms == null) rooms = SUPPLY[geo]?.["All Tier"]?.rooms || null;
 
       const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
       const mkt   = geoMeta[geo]?.market || "";
@@ -1348,7 +1320,7 @@ export default function KalibriDashboard() {
 
     scored.sort((a, b) => (b.composite ?? -Infinity) - (a.composite ?? -Infinity));
     return scored.map((r, i) => ({ ...r, rank: i + 1 }));
-  }, [db, filteredGeos, periods, tw, lastActual, scoreRevType, scoreLosW, scoreTierW, scoreMetricW, scoreSupplyW, scoreCagrStart, scoreCagrEnd]);
+  }, [db, filteredGeos, periods, tw, lastActual, scoreRevType, scoreLos, scoreTier, scoreMetricW, scoreSupplyW, scoreCagrStart, scoreCagrEnd]);
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const PILL_ROW = { display:"flex", gap:3, flexWrap:"nowrap", overflowX:"auto", overflowY:"hidden", padding:"4px 6px", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, marginTop:3, height:28, alignItems:"center" };
@@ -2278,21 +2250,45 @@ export default function KalibriDashboard() {
 
               return (
                 <div>
-                  {/* LOS Weights */}
-                  <SliderGroup title="LOS Weights" onReset={() => setScoreLosW({ "":1,"0-6":1,"7-14":1,"15-29":1,"30+":1 })}>
-                    {[["","Overview"],["0-6","0–6 Nights"],["7-14","7–14 Nights"],["15-29","15–29 Nights"],["30+","30+ Nights"]].map(([k, lbl]) => (
-                      <Slider key={k} label={lbl} value={scoreLosW[k] ?? 1} min={0} max={10} step={0.1}
-                        onChange={v => setScoreLosW(prev => ({ ...prev, [k]: v }))} />
-                    ))}
-                  </SliderGroup>
+                  {/* Length of Stay filter toggles */}
+                  <div style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:8, padding:"10px 14px", marginBottom:10 }}>
+                    <span style={{ fontSize:10, color:"#94a3b8", fontWeight:600, textTransform:"uppercase", letterSpacing:1, display:"block", marginBottom:8 }}>Length of Stay</span>
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                      {LOS_OPTIONS.map(l => {
+                        const isOverview = l.value === "";
+                        const active = isOverview ? scoreLos[0] === "" : scoreLos.includes(l.value);
+                        const handleClick = () => {
+                          if (isOverview) { setScoreLos([""]); return; }
+                          setScoreLos(prev => {
+                            const without = prev.filter(v => v !== "" && v !== l.value);
+                            if (prev.includes(l.value)) return without.length ? without : [""];
+                            return [...prev.filter(v => v !== ""), l.value];
+                          });
+                        };
+                        return <Btn key={l.value} active={active} onClick={handleClick} color="#10b981">{l.label}</Btn>;
+                      })}
+                    </div>
+                  </div>
 
-                  {/* Tier Weights */}
-                  <SliderGroup title="Tier Weights" onReset={() => setScoreTierW({ "Lower Tier":1,"Mid Tier":1,"Upper Tier":1 })}>
-                    {[["Lower Tier","Lower Tier"],["Mid Tier","Mid Tier"],["Upper Tier","Upper Tier"]].map(([k, lbl]) => (
-                      <Slider key={k} label={lbl} value={scoreTierW[k] ?? 1} min={0} max={10} step={0.1}
-                        onChange={v => setScoreTierW(prev => ({ ...prev, [k]: v }))} />
-                    ))}
-                  </SliderGroup>
+                  {/* Hotel Class filter toggles */}
+                  <div style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:8, padding:"10px 14px", marginBottom:10 }}>
+                    <span style={{ fontSize:10, color:"#94a3b8", fontWeight:600, textTransform:"uppercase", letterSpacing:1, display:"block", marginBottom:8 }}>Hotel Class</span>
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                      {[["Lower","Lower Tier"],["Mid","Mid Tier"],["Upper","Upper Tier"]].map(([id, lbl]) => {
+                        const active = scoreTier.includes(id);
+                        const handleClick = () => {
+                          setScoreTier(prev => {
+                            if (prev.includes(id)) {
+                              const without = prev.filter(v => v !== id);
+                              return without.length ? without : [id]; // prevent empty
+                            }
+                            return [...prev, id];
+                          });
+                        };
+                        return <Btn key={id} active={active} onClick={handleClick} color="#10b981">{lbl}</Btn>;
+                      })}
+                    </div>
+                  </div>
 
                   {/* Metric Weights */}
                   <SliderGroup title="Metric Weights" onReset={() => setScoreMetricW({ revpar:1,revpar_cagr:1,occ:1,occ_cagr:1,adr:1,adr_cagr:1,alos:1 })}>
