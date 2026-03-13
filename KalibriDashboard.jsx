@@ -1678,9 +1678,7 @@ export default function KalibriDashboard() {
                   <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
                 )}
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-                <XAxis dataKey="period" tick={{ fill:"#94a3b8", fontSize:10 }} angle={-45} textAnchor="end" height={70}
-                  ticks={trendData.chartData?.filter(d => [1,4,7,10].includes(parseInt(d.period.split("-")[1]))).map(d => d.period)}
-                  tickFormatter={p => { const [y,m] = p.split("-"); return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m)-1] + " '" + y.slice(2); }}/>
+                <XAxis dataKey="period" tick={{ fill:"#94a3b8", fontSize:10 }} angle={-45} textAnchor="end" height={70} interval={1}/>
                 <YAxis
                   tick={{ fill:"#94a3b8", fontSize:10 }}
                   tickFormatter={TREND_METRICS.find(m => m.key === trendMetric)?.tickFmt}
