@@ -621,12 +621,12 @@ export default function KalibriDashboard() {
   const [yoyClip,     setYoyClip]     = useState(null);
   const [trendGeoSel,  setTrendGeoSel]  = useState(null);
   const [trendGeoOpen, setTrendGeoOpen] = useState(false);
-  const [trendStart,   setTrendStart]   = useState("");
-  const [trendEnd,     setTrendEnd]     = useState("");
+  const [trendStart,   setTrendStart]   = useState("2023-01");
+  const [trendEnd,     setTrendEnd]     = useState("2026-01");
 
   // cagr
-  const [cagrStart,      setCagrStart]      = useState("");
-  const [cagrEnd,        setCagrEnd]        = useState("");
+  const [cagrStart,      setCagrStart]      = useState("2023-01");
+  const [cagrEnd,        setCagrEnd]        = useState("2026-01");
   const [cagrSortKey,    setCagrSortKey]    = useState("revpar_cagr");
   const [cagrSortDir,    setCagrSortDir]    = useState("desc");
   const [cagrChartMetric,setCagrChartMetric]= useState("revpar_cagr");
@@ -637,8 +637,8 @@ export default function KalibriDashboard() {
   const [scoreTier,       setScoreTier]       = useState(["Lower", "Mid", "Upper"]); // array of selected tier ids, default all
   const [scoreMetricW,    setScoreMetricW]    = useState({ revpar:1, revpar_cagr:1, occ:1, occ_cagr:1, adr:1, adr_cagr:1, alos:1 });
   const [scoreSupplyW,    setScoreSupplyW]    = useState(0); // -10 to +10
-  const [scoreCagrStart,  setScoreCagrStart]  = useState("");
-  const [scoreCagrEnd,    setScoreCagrEnd]    = useState("");
+  const [scoreCagrStart,  setScoreCagrStart]  = useState("2023-01");
+  const [scoreCagrEnd,    setScoreCagrEnd]    = useState("2026-01");
 
   // supply tab
   const [supplyData,          setSupplyData]          = useState([]);
