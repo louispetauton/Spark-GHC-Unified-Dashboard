@@ -1056,7 +1056,6 @@ export default function KalibriDashboard() {
     const applyClip = v => (isYoY && yoyClip != null && v != null) ? Math.max(-yoyClip, Math.min(yoyClip, v)) : v;
 
     const chartData = trendPeriods
-      .filter((_, i) => i % 3 === 0 || i === trendPeriods.length - 1)
       .map(p => {
         const row = { period: periodLabel(p), periodRaw: p };
         for (const geo of topGeos) {
@@ -1678,7 +1677,7 @@ export default function KalibriDashboard() {
                   <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
                 )}
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-                <XAxis dataKey="period" tick={{ fill:"#94a3b8", fontSize:10 }} angle={-45} textAnchor="end" height={70} interval={1}/>
+                <XAxis dataKey="period" tick={{ fill:"#94a3b8", fontSize:10 }} angle={-45} textAnchor="end" height={70} interval={Math.max(0, Math.floor(trendData.chartData?.length / 20) - 1)}/>
                 <YAxis
                   tick={{ fill:"#94a3b8", fontSize:10 }}
                   tickFormatter={TREND_METRICS.find(m => m.key === trendMetric)?.tickFmt}
