@@ -636,8 +636,7 @@ export default function KalibriDashboard() {
   const [scoreLosW,       setScoreLosW]       = useState({ "": 1, "0-6": 1, "7-14": 1, "15-29": 1, "30+": 1 });
   const [scoreTierW,      setScoreTierW]      = useState({ "Lower Tier": 1, "Mid Tier": 1, "Upper Tier": 1 });
   const [scoreMetricW,    setScoreMetricW]    = useState({ revpar:1, revpar_cagr:1, occ:1, occ_cagr:1, adr:1, adr_cagr:1, alos:1 });
-  const [scoreLosDir,     setScoreLosDir]     = useState(0);
-  const [scoreSupplyDir,  setScoreSupplyDir]  = useState(0);
+  const [scoreSupplyW,    setScoreSupplyW]    = useState(0); // -10 to +10
   const [scoreCagrStart,  setScoreCagrStart]  = useState("");
   const [scoreCagrEnd,    setScoreCagrEnd]    = useState("");
 
@@ -1310,18 +1309,19 @@ export default function KalibriDashboard() {
     const normMetricW = {};
     mwKeys.forEach(k => { normMetricW[k] = mwSum > 0 ? (scoreMetricW[k] || 0) / mwSum : 1 / mwKeys.length; });
 
-    // Supply weight factor
-    const supplyFactor = Math.abs(scoreSupplyDir) / 100;
+    // Supply weight: direction baked into normalized score, weight = abs(scoreSupplyW)
+    const supplyEffectiveW = Math.abs(scoreSupplyW);
 
     const scored = rawData.map(r => {
       const ns = {};
       normKeys.forEach(k => { ns[k] = normalize(r[k], k); });
 
-      // Directional adjustments
-      const alosAdj    = ns.alos    != null ? 50 + (ns.alos - 50) * (scoreLosDir / 100) : null;
-      const supplyAdj  = ns.rooms   != null ? 50 + (ns.rooms - 50) * (Math.sign(scoreSupplyDir) || 1) : null;
+      // Supply normalized score with direction baked in
+      const supplyNorm = ns.rooms != null
+        ? (scoreSupplyW >= 0 ? ns.rooms : 100 - ns.rooms)
+        : null;
 
-      // Composite score
+      // Composite score: 7 metric weights + optional supply weight
       let compNum = 0, compDen = 0;
       const addM = (normScore, wKey) => {
         if (normScore == null) return;
@@ -1335,20 +1335,20 @@ export default function KalibriDashboard() {
       addM(ns.occ_cagr,    "occ_cagr");
       addM(ns.adr,         "adr");
       addM(ns.adr_cagr,    "adr_cagr");
-      addM(alosAdj,        "alos");
-      if (supplyFactor > 0 && supplyAdj != null) {
-        compNum += supplyAdj * supplyFactor;
-        compDen += supplyFactor;
+      addM(ns.alos,        "alos");
+      if (supplyEffectiveW > 0 && supplyNorm != null) {
+        compNum += supplyNorm * supplyEffectiveW;
+        compDen += supplyEffectiveW;
       }
 
       const composite = compDen > 0 ? compNum / compDen : null;
 
-      return { ...r, ns, alosAdj, supplyAdj, composite };
+      return { ...r, ns, supplyNorm, composite };
     });
 
     scored.sort((a, b) => (b.composite ?? -Infinity) - (a.composite ?? -Infinity));
     return scored.map((r, i) => ({ ...r, rank: i + 1 }));
-  }, [db, filteredGeos, periods, tw, lastActual, scoreRevType, scoreLosW, scoreTierW, scoreMetricW, scoreLosDir, scoreSupplyDir, scoreCagrStart, scoreCagrEnd]);
+  }, [db, filteredGeos, periods, tw, lastActual, scoreRevType, scoreLosW, scoreTierW, scoreMetricW, scoreSupplyW, scoreCagrStart, scoreCagrEnd]);
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const PILL_ROW = { display:"flex", gap:3, flexWrap:"nowrap", overflowX:"auto", overflowY:"hidden", padding:"4px 6px", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, marginTop:3, height:28, alignItems:"center" };
@@ -2302,40 +2302,22 @@ export default function KalibriDashboard() {
                     ))}
                   </SliderGroup>
 
-                  {/* Directional */}
-                  <SliderGroup title="Directional Preferences" onReset={() => { setScoreLosDir(0); setScoreSupplyDir(0); }}>
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", minWidth:180, maxWidth:220 }}>
+                  {/* Supply */}
+                  <SliderGroup title="Supply" onReset={() => setScoreSupplyW(0)}>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", minWidth:260, maxWidth:320 }}>
                       <div style={{ display:"flex", justifyContent:"space-between", width:"100%", marginBottom:2 }}>
-                        <span style={{ fontSize:9, color:"#64748b" }}>Short Stay</span>
-                        <span style={{ fontSize:10, color:"#94a3b8", fontWeight:600 }}>LOS Preference</span>
-                        <span style={{ fontSize:9, color:"#64748b" }}>Long Stay</span>
+                        <span style={{ fontSize:9, color:"#64748b" }}>Favor Low Supply<br/><span style={{ fontSize:8, color:"#475569" }}>(development opportunity)</span></span>
+                        <span style={{ fontSize:9, color:"#64748b", textAlign:"right" }}>Favor High Supply<br/><span style={{ fontSize:8, color:"#475569" }}>(proven market)</span></span>
                       </div>
                       <div style={{ width:"100%", position:"relative" }}>
                         <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:1, height:"100%", background:"#334155", top:0, pointerEvents:"none" }}/>
-                        <input type="range" min={-100} max={100} step={1} value={scoreLosDir}
-                          onChange={e => setScoreLosDir(parseInt(e.target.value))}
+                        <input type="range" min={-10} max={10} step={0.5} value={scoreSupplyW}
+                          onChange={e => setScoreSupplyW(parseFloat(e.target.value))}
                           style={{ width:"100%", accentColor:"#10b981", cursor:"pointer" }}
                         />
                       </div>
-                      <span style={{ fontSize:10, color:"#10b981", fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
-                        {scoreLosDir > 0 ? "+" + scoreLosDir : scoreLosDir}
-                      </span>
-                    </div>
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", minWidth:180, maxWidth:220 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", width:"100%", marginBottom:2 }}>
-                        <span style={{ fontSize:9, color:"#64748b" }}>Low Supply</span>
-                        <span style={{ fontSize:10, color:"#94a3b8", fontWeight:600 }}>Supply Preference</span>
-                        <span style={{ fontSize:9, color:"#64748b" }}>High Supply</span>
-                      </div>
-                      <div style={{ width:"100%", position:"relative" }}>
-                        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:1, height:"100%", background:"#334155", top:0, pointerEvents:"none" }}/>
-                        <input type="range" min={-100} max={100} step={1} value={scoreSupplyDir}
-                          onChange={e => setScoreSupplyDir(parseInt(e.target.value))}
-                          style={{ width:"100%", accentColor:"#10b981", cursor:"pointer" }}
-                        />
-                      </div>
-                      <span style={{ fontSize:10, color:"#10b981", fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
-                        {scoreSupplyDir > 0 ? "+" + scoreSupplyDir : scoreSupplyDir}
+                      <span style={{ fontSize:10, color:"#10b981", fontFamily:"'IBM Plex Mono',monospace", fontWeight:600, marginTop:2 }}>
+                        Supply Weight: {scoreSupplyW > 0 ? "+" + scoreSupplyW : scoreSupplyW === 0 ? "0 (neutral)" : scoreSupplyW}
                       </span>
                     </div>
                   </SliderGroup>
@@ -2375,7 +2357,7 @@ export default function KalibriDashboard() {
                 <thead>
                   <tr style={{ background:"#070f1e" }}>
                     <th colSpan={geoLevel === "submarket" ? 3 : 2} style={{ background:"#070f1e", padding:"4px 0" }}/>
-                    <th colSpan={7} style={{ background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526" }}>
+                    <th colSpan={8} style={{ background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526" }}>
                       Blended Metrics
                     </th>
                     <th colSpan={8} style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655", borderLeft:"1px solid #0d1526" }}>
@@ -2393,6 +2375,7 @@ export default function KalibriDashboard() {
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>ADR</th>
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:70 }}>ADR CAGR</th>
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:50 }}>ALOS</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#60a5fa", fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>Rooms</th>
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:50 }}>RevPAR</th>
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>Rev CAGR</th>
                     <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:40 }}>Occ</th>
@@ -2405,7 +2388,7 @@ export default function KalibriDashboard() {
                 </thead>
                 <tbody>
                   {scoreRows.length === 0 && (
-                    <tr><td colSpan={20} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
+                    <tr><td colSpan={21} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
                   )}
                   {scoreRows.map((row, i) => {
                     const isTop5 = i < 5;
@@ -2436,6 +2419,7 @@ export default function KalibriDashboard() {
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#cbd5e1" }}>{row.adr != null ? "$"+row.adr.toFixed(2) : "—"}</td>
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color: row.adr_cagr != null ? (row.adr_cagr >= 0 ? "#4ade80" : "#f87171") : "#475569" }}>{row.adr_cagr != null ? (row.adr_cagr >= 0 ? "+" : "") + (row.adr_cagr * 100).toFixed(1) + "%" : "—"}</td>
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#94a3b8" }}>{row.alos != null ? row.alos.toFixed(2) : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#60a5fa" }}>{row.rooms != null ? Math.round(row.rooms).toLocaleString() : "—"}</td>
                         {/* Normalized scores */}
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b", borderLeft:"1px solid #0d1526" }}>{fmtNorm(ns.revpar)}</td>
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.revpar_cagr)}</td>
@@ -2443,7 +2427,7 @@ export default function KalibriDashboard() {
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.occ_cagr)}</td>
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.adr)}</td>
                         <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.adr_cagr)}</td>
-                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{row.alosAdj != null ? row.alosAdj.toFixed(1) : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.alos)}</td>
                         {/* Composite score */}
                         <td style={{ padding:"5px 8px", borderLeft:`2px solid ${scoreColor}55`, minWidth:80 }}>
                           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
