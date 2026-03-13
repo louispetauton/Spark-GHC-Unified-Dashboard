@@ -2327,11 +2327,11 @@ export default function KalibriDashboard() {
                 <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
                   Composite Score · {scoreRows.length} {geoLevel === "market" ? "markets" : "submarkets"} · {scoreRevType}
                 </div>
-                <ResponsiveContainer width="100%" height={Math.max(160, Math.min(320, scoreRows.length * 22 + 60))}>
-                  <BarChart data={scoreRows} layout="vertical" margin={{ top:4, right:60, bottom:4, left:160 }}>
+                <ResponsiveContainer width="100%" height={scoreRows.length * 24 + 60}>
+                  <BarChart data={scoreRows} layout="vertical" margin={{ top:4, right:60, bottom:4, left:220 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false}/>
                     <XAxis type="number" domain={[0, 100]} tick={{ fill:"#475569", fontSize:9 }} tickFormatter={v => v.toFixed(0)}/>
-                    <YAxis type="category" dataKey="label" tick={{ fill:"#94a3b8", fontSize:10 }} width={155}/>
+                    <YAxis type="category" dataKey="label" tick={{ fill:"#94a3b8", fontSize:10 }} width={215}/>
                     <Tooltip
                       contentStyle={{ background:"#1e293b", border:"1px solid #334155", borderRadius:6, fontSize:11 }}
                       formatter={(v) => [v != null ? v.toFixed(1) : "—", "Score"]}
@@ -2348,6 +2348,14 @@ export default function KalibriDashboard() {
             )}
 
             {/* Score table */}
+            <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:6 }}>
+              <button onClick={() => {
+                const headers = ["Rank", geoLevel==="submarket"?"Submarket":"Market", ...(geoLevel==="submarket"?["Market"]:[]), "RevPAR","RevPAR CAGR","Occ","Occ CAGR","ADR","ADR CAGR","ALOS","Rooms","Score"];
+                const rows = scoreRows.map(r => [r.rank, r.label, ...(geoLevel==="submarket"?[geoMeta[r.geo]?.market||""]:[]), r.revpar?.toFixed(2)??"", r.revpar_cagr!=null?(r.revpar_cagr*100).toFixed(1)+"%":"", r.occ!=null?(r.occ*100).toFixed(1)+"%":"", r.occ_cagr!=null?(r.occ_cagr*100).toFixed(1)+"%":"", r.adr?.toFixed(2)??"", r.adr_cagr!=null?(r.adr_cagr*100).toFixed(1)+"%":"", r.alos?.toFixed(2)??"", r.rooms??"", r.composite?.toFixed(1)??""]);
+                const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+                const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv); a.download = "score_ranking.csv"; a.click();
+              }} style={{ ...btnBase, background:"#1e293b", color:"#94a3b8", border:"1px solid #334155" }}>↓ Export CSV</button>
+            </div>
             <div style={{ overflowX:"auto" }}>
               <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:11, width:"100%" }}>
                 <thead>
