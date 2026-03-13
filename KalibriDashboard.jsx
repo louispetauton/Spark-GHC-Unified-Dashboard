@@ -631,6 +631,16 @@ export default function KalibriDashboard() {
   const [cagrSortDir,    setCagrSortDir]    = useState("desc");
   const [cagrChartMetric,setCagrChartMetric]= useState("revpar_cagr");
 
+  // score tab
+  const [scoreRevType,    setScoreRevType]    = useState("Guest Paid");
+  const [scoreLosW,       setScoreLosW]       = useState({ "": 1, "0-6": 1, "7-14": 1, "15-29": 1, "30+": 1 });
+  const [scoreTierW,      setScoreTierW]      = useState({ "Lower Tier": 1, "Mid Tier": 1, "Upper Tier": 1 });
+  const [scoreMetricW,    setScoreMetricW]    = useState({ revpar:1, revpar_cagr:1, occ:1, occ_cagr:1, adr:1, adr_cagr:1, alos:1 });
+  const [scoreLosDir,     setScoreLosDir]     = useState(0);
+  const [scoreSupplyDir,  setScoreSupplyDir]  = useState(0);
+  const [scoreCagrStart,  setScoreCagrStart]  = useState("");
+  const [scoreCagrEnd,    setScoreCagrEnd]    = useState("");
+
   // supply tab
   const [supplyData,          setSupplyData]          = useState([]);
   const [expandedGeo,         setExpandedGeo]         = useState(null);
@@ -678,6 +688,8 @@ export default function KalibriDashboard() {
         setPeriod1(latestActual);
         setCagrEnd(latestActual);
         setCagrStart(allPeriods.includes(sixYrPrior) ? sixYrPrior : allPeriods[0]);
+        setScoreCagrEnd(latestActual);
+        setScoreCagrStart(allPeriods.includes(sixYrPrior) ? sixYrPrior : allPeriods[0]);
       })
       .catch(e => { setLoadError(e.message); setLoading(false); });
 
@@ -1193,6 +1205,151 @@ export default function KalibriDashboard() {
     return [...new Set(rows.map(r => r.Brand))].filter(Boolean).sort();
   }, [supplyData, extStayOnly, supplyFilterCompany]);
 
+  // ── Score rows ─────────────────────────────────────────────────────────────
+  const scoreRows = useMemo(() => {
+    if (!db || !filteredGeos.length) return [];
+
+    const endPeriod = lastActual;
+    const LOS_KEYS = ["", "0-6", "7-14", "15-29", "30+"];
+    const TIER_KEYS = ["Lower Tier", "Mid Tier", "Upper Tier"];
+
+    // Normalize weight maps
+    const losSum = LOS_KEYS.reduce((s, k) => s + (scoreLosW[k] || 0), 0);
+    const tierSum = TIER_KEYS.reduce((s, k) => s + (scoreTierW[k] || 0), 0);
+    const normalizedLosW = {};
+    LOS_KEYS.forEach(k => { normalizedLosW[k] = losSum > 0 ? (scoreLosW[k] || 0) / losSum : 1 / LOS_KEYS.length; });
+    const normalizedTierW = {};
+    TIER_KEYS.forEach(k => { normalizedTierW[k] = tierSum > 0 ? (scoreTierW[k] || 0) / tierSum : 1 / TIER_KEYS.length; });
+
+    // CAGR years
+    let cagrYears = 0;
+    if (scoreCagrStart && scoreCagrEnd && scoreCagrEnd > scoreCagrStart) {
+      const [sy, sm] = scoreCagrStart.split("-");
+      const [ey, em] = scoreCagrEnd.split("-");
+      cagrYears = (parseInt(ey) - parseInt(sy)) + (parseInt(em) - parseInt(sm)) / 12;
+    }
+
+    const twMo = TIME_WINDOWS.find(t => t.id === "mo");
+
+    const rawData = filteredGeos.map(geo => {
+      // Blend metrics across LOS x Tier combos
+      const blendMetric = (getVal) => {
+        let total = 0, weightSum = 0;
+        for (const los of LOS_KEYS) {
+          for (const tier of TIER_KEYS) {
+            const lw = normalizedLosW[los] || 0;
+            const tw2 = normalizedTierW[tier] || 0;
+            if (lw === 0 || tw2 === 0) continue;
+            const val = getVal(los, tier);
+            if (val == null || !isFinite(val)) continue;
+            total += lw * tw2 * val;
+            weightSum += lw * tw2;
+          }
+        }
+        return weightSum > 0 ? total / weightSum : null;
+      };
+
+      const getV = (los, tier) => {
+        const m = computeTrailing(db.lookup, endPeriod, geo, scoreRevType, [tier], [los], tw, periods);
+        return m || null;
+      };
+
+      const revpar = blendMetric((los, tier) => getV(los, tier)?.revpar);
+      const occ    = blendMetric((los, tier) => getV(los, tier)?.occ);
+      const adr    = blendMetric((los, tier) => getV(los, tier)?.adr);
+      const alos   = blendMetric((los, tier) => getV(los, tier)?.alos);
+
+      // CAGR
+      let revpar_cagr = null, occ_cagr = null, adr_cagr = null;
+      if (cagrYears > 0 && scoreCagrStart && scoreCagrEnd) {
+        const revpar_s = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrStart, geo, scoreRevType, [tier], [los], twMo, periods)?.revpar);
+        const revpar_e = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrEnd,   geo, scoreRevType, [tier], [los], twMo, periods)?.revpar);
+        const occ_s    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrStart, geo, scoreRevType, [tier], [los], twMo, periods)?.occ);
+        const occ_e    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrEnd,   geo, scoreRevType, [tier], [los], twMo, periods)?.occ);
+        const adr_s    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrStart, geo, scoreRevType, [tier], [los], twMo, periods)?.adr);
+        const adr_e    = blendMetric((los, tier) => computeTrailing(db.lookup, scoreCagrEnd,   geo, scoreRevType, [tier], [los], twMo, periods)?.adr);
+        revpar_cagr = calcCAGR(revpar_s, revpar_e, cagrYears);
+        occ_cagr    = occ_s != null && occ_e != null && occ_s > 0 ? Math.pow(occ_e / occ_s, 1 / cagrYears) - 1 : null;
+        adr_cagr    = calcCAGR(adr_s, adr_e, cagrYears);
+      }
+
+      // Supply (tier-weighted by scoreTierW)
+      let roomsNum = 0, roomsDen = 0;
+      for (const tier of TIER_KEYS) {
+        const tw2 = scoreTierW[tier] || 0;
+        const r = SUPPLY[geo]?.[tier]?.rooms || 0;
+        if (r > 0) { roomsNum += tw2 * r; roomsDen += tw2; }
+      }
+      const rooms = roomsDen > 0 ? roomsNum / roomsDen : (SUPPLY[geo]?.["All Tier"]?.rooms || null);
+
+      const label = geoMeta[geo]?.submarket || geoMeta[geo]?.market || geo;
+      const mkt   = geoMeta[geo]?.market || "";
+      return { geo, label, mkt, revpar, revpar_cagr, occ, occ_cagr, adr, adr_cagr, alos, rooms };
+    });
+
+    // Min-max normalization
+    const minMax = (key) => {
+      const vals = rawData.map(r => r[key]).filter(v => v != null && isFinite(v));
+      if (!vals.length) return { min: 0, max: 1 };
+      return { min: Math.min(...vals), max: Math.max(...vals) };
+    };
+    const normKeys = ["revpar", "revpar_cagr", "occ", "occ_cagr", "adr", "adr_cagr", "alos", "rooms"];
+    const ranges = {};
+    normKeys.forEach(k => { ranges[k] = minMax(k); });
+
+    const normalize = (val, key) => {
+      if (val == null || !isFinite(val)) return null;
+      const { min, max } = ranges[key];
+      if (max === min) return 50;
+      return ((val - min) / (max - min)) * 100;
+    };
+
+    // Metric weight normalization
+    const mwKeys = Object.keys(scoreMetricW);
+    const mwSum = mwKeys.reduce((s, k) => s + (scoreMetricW[k] || 0), 0);
+    const normMetricW = {};
+    mwKeys.forEach(k => { normMetricW[k] = mwSum > 0 ? (scoreMetricW[k] || 0) / mwSum : 1 / mwKeys.length; });
+
+    // Supply weight factor
+    const supplyFactor = Math.abs(scoreSupplyDir) / 100;
+
+    const scored = rawData.map(r => {
+      const ns = {};
+      normKeys.forEach(k => { ns[k] = normalize(r[k], k); });
+
+      // Directional adjustments
+      const alosAdj    = ns.alos    != null ? 50 + (ns.alos - 50) * (scoreLosDir / 100) : null;
+      const supplyAdj  = ns.rooms   != null ? 50 + (ns.rooms - 50) * (Math.sign(scoreSupplyDir) || 1) : null;
+
+      // Composite score
+      let compNum = 0, compDen = 0;
+      const addM = (normScore, wKey) => {
+        if (normScore == null) return;
+        const w = normMetricW[wKey] || 0;
+        compNum += normScore * w;
+        compDen += w;
+      };
+      addM(ns.revpar,      "revpar");
+      addM(ns.revpar_cagr, "revpar_cagr");
+      addM(ns.occ,         "occ");
+      addM(ns.occ_cagr,    "occ_cagr");
+      addM(ns.adr,         "adr");
+      addM(ns.adr_cagr,    "adr_cagr");
+      addM(alosAdj,        "alos");
+      if (supplyFactor > 0 && supplyAdj != null) {
+        compNum += supplyAdj * supplyFactor;
+        compDen += supplyFactor;
+      }
+
+      const composite = compDen > 0 ? compNum / compDen : null;
+
+      return { ...r, ns, alosAdj, supplyAdj, composite };
+    });
+
+    scored.sort((a, b) => (b.composite ?? -Infinity) - (a.composite ?? -Infinity));
+    return scored.map((r, i) => ({ ...r, rank: i + 1 }));
+  }, [db, filteredGeos, periods, tw, lastActual, scoreRevType, scoreLosW, scoreTierW, scoreMetricW, scoreLosDir, scoreSupplyDir, scoreCagrStart, scoreCagrEnd]);
+
   // ── Styles ─────────────────────────────────────────────────────────────────
   const PILL_ROW = { display:"flex", gap:3, flexWrap:"nowrap", overflowX:"auto", overflowY:"hidden", padding:"4px 6px", background:"#0a1628", border:"1px solid #1e293b", borderRadius:6, marginTop:3, height:28, alignItems:"center" };
   const sel = {
@@ -1276,8 +1433,8 @@ export default function KalibriDashboard() {
           <div style={{ fontSize:10, color:"#334155", fontFamily:"'IBM Plex Mono',monospace" }}>Last Actual: <span style={{ color:"#94a3b8" }}>{periodLabel(lastActual)}</span></div>
           <div style={{ width:1, height:28, background:"#1e293b" }}/>
           <div style={{ display:"flex", gap:2 }}>
-            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"],["supply","Supply"],["map","Map"]].map(([id, lbl]) => (
-              <Btn key={id} active={tab===id} onClick={() => setTab(id)} color="#6366f1">{lbl}</Btn>
+            {[["overview","Overview"],["trend","Trend"],["cagr","CAGR Analysis"],["supply","Supply"],["map","Map"],["score","Score"]].map(([id, lbl]) => (
+              <Btn key={id} active={tab===id} onClick={() => setTab(id)} color={id==="score"?"#10b981":"#6366f1"}>{lbl}</Btn>
             ))}
           </div>
         </div>
@@ -1287,7 +1444,7 @@ export default function KalibriDashboard() {
       <div style={{ padding:"8px 28px", background:"#111827", borderBottom:"1px solid #1e293b", display:"flex", flexWrap:"wrap", gap:10, alignItems:"flex-end", flexShrink:0 }}>
 
         {/* Revenue Type */}
-        {tab !== "supply" && tab !== "map" && (
+        {tab !== "supply" && tab !== "map" && tab !== "score" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Revenue Type</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -1297,6 +1454,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Hotel Class */}
+        {tab !== "score" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Hotel Class</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -1315,9 +1473,10 @@ export default function KalibriDashboard() {
             })}
           </div>
         </div>
+        )}
 
         {/* Length of Stay */}
-        {tab !== "supply" && tab !== "map" && (
+        {tab !== "supply" && tab !== "map" && tab !== "score" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Length of Stay</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -1339,7 +1498,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Aggregation disclaimer */}
-        {tab !== "supply" && tab !== "map" && (tiers.length > 1 || losTiers.length > 1) && (
+        {tab !== "supply" && tab !== "map" && tab !== "score" && (tiers.length > 1 || losTiers.length > 1) && (
           <div style={{ display:"flex", alignItems:"flex-start", gap:6, background:"#1e293b", border:"1px solid #f59e0b55", borderRadius:6, padding:"6px 10px", maxWidth:420 }}>
             <span style={{ color:"#f59e0b", fontSize:13, lineHeight:1 }}>⚠</span>
             <span style={{ color:"#94a3b8", fontSize:11, lineHeight:1.4 }}>
@@ -1349,7 +1508,7 @@ export default function KalibriDashboard() {
         )}
 
         {/* Time Window */}
-        {tab !== "supply" && tab !== "map" && (
+        {tab !== "supply" && tab !== "map" && tab !== "score" && (
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <label style={label9}>Time Window</label>
           <div style={{ display:"flex", gap:2 }}>
@@ -2041,6 +2200,262 @@ export default function KalibriDashboard() {
                           </tr>
                         )}
                       </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ════ SCORE ════ */}
+        {tab === "score" && (
+          <div>
+            {/* Score controls */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:14, marginBottom:16, alignItems:"flex-end" }}>
+              {/* Revenue Type */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Revenue Type</label>
+                <div style={{ display:"flex", gap:2 }}>
+                  {REV_TYPES.map(rt => <Btn key={rt} active={scoreRevType===rt} onClick={() => setScoreRevType(rt)} color="#10b981">{rt}</Btn>)}
+                </div>
+              </div>
+              {/* CAGR Period */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>CAGR From</label>
+                <select value={scoreCagrStart} onChange={e => setScoreCagrStart(e.target.value)} style={{ ...sel, minWidth:120 }}>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}</option>)}
+                </select>
+              </div>
+              <div style={{ alignSelf:"flex-end", paddingBottom:8, color:"#334155", fontSize:14 }}>→</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>CAGR To</label>
+                <select value={scoreCagrEnd} onChange={e => setScoreCagrEnd(e.target.value)} style={{ ...sel, minWidth:120 }}>
+                  {[...filteredPeriods].reverse().map(p => <option key={p} value={p}>{periodLabel(p)}</option>)}
+                </select>
+              </div>
+              {scoreCagrStart && scoreCagrEnd && scoreCagrEnd > scoreCagrStart && (
+                <div style={{ fontSize:11, color:"#475569", alignSelf:"flex-end", paddingBottom:6 }}>
+                  {(() => {
+                    const [sy, sm] = scoreCagrStart.split("-"), [ey, em] = scoreCagrEnd.split("-");
+                    const y = (parseInt(ey) - parseInt(sy)) + (parseInt(em) - parseInt(sm)) / 12;
+                    return y.toFixed(1) + "-yr CAGR window";
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Slider Groups */}
+            {(() => {
+              const SliderGroup = ({ title, items, onReset, children }) => (
+                <div style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:8, padding:"10px 14px", marginBottom:10 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                    <span style={{ fontSize:10, color:"#94a3b8", fontWeight:600, textTransform:"uppercase", letterSpacing:1 }}>{title}</span>
+                    <button onClick={onReset} style={{ ...btnBase, height:22, padding:"0 8px", fontSize:9, background:"#0f172a", color:"#475569", border:"1px solid #334155" }}>Reset equal</button>
+                  </div>
+                  <div style={{ display:"flex", gap:12, flexWrap:"nowrap", overflowX:"auto" }}>
+                    {children}
+                  </div>
+                </div>
+              );
+              const Slider = ({ label, value, min, max, step, onChange, isCenter }) => (
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", minWidth:90, maxWidth:110 }}>
+                  <span style={{ fontSize:10, color:"#94a3b8", marginBottom:4, textAlign:"center", lineHeight:1.2, whiteSpace:"nowrap" }}>{label}</span>
+                  {isCenter && (
+                    <div style={{ width:"100%", position:"relative", height:4, marginBottom:2 }}>
+                      <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:1, height:8, background:"#475569", top:-2 }}/>
+                    </div>
+                  )}
+                  <input type="range" min={min} max={max} step={step} value={value}
+                    onChange={e => onChange(parseFloat(e.target.value))}
+                    style={{ width:"100%", accentColor:"#10b981", cursor:"pointer" }}
+                  />
+                  <span style={{ fontSize:10, color:"#10b981", marginTop:2, fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
+                    {isCenter ? (value > 0 ? "+" + value : value) : value.toFixed(1)}
+                  </span>
+                </div>
+              );
+
+              return (
+                <div>
+                  {/* LOS Weights */}
+                  <SliderGroup title="LOS Weights" onReset={() => setScoreLosW({ "":1,"0-6":1,"7-14":1,"15-29":1,"30+":1 })}>
+                    {[["","Overview"],["0-6","0–6 Nights"],["7-14","7–14 Nights"],["15-29","15–29 Nights"],["30+","30+ Nights"]].map(([k, lbl]) => (
+                      <Slider key={k} label={lbl} value={scoreLosW[k] ?? 1} min={0} max={10} step={0.1}
+                        onChange={v => setScoreLosW(prev => ({ ...prev, [k]: v }))} />
+                    ))}
+                  </SliderGroup>
+
+                  {/* Tier Weights */}
+                  <SliderGroup title="Tier Weights" onReset={() => setScoreTierW({ "Lower Tier":1,"Mid Tier":1,"Upper Tier":1 })}>
+                    {[["Lower Tier","Lower Tier"],["Mid Tier","Mid Tier"],["Upper Tier","Upper Tier"]].map(([k, lbl]) => (
+                      <Slider key={k} label={lbl} value={scoreTierW[k] ?? 1} min={0} max={10} step={0.1}
+                        onChange={v => setScoreTierW(prev => ({ ...prev, [k]: v }))} />
+                    ))}
+                  </SliderGroup>
+
+                  {/* Metric Weights */}
+                  <SliderGroup title="Metric Weights" onReset={() => setScoreMetricW({ revpar:1,revpar_cagr:1,occ:1,occ_cagr:1,adr:1,adr_cagr:1,alos:1 })}>
+                    {[["revpar","RevPAR Level"],["revpar_cagr","RevPAR CAGR"],["occ","Occ Level"],["occ_cagr","Occ CAGR"],["adr","ADR Level"],["adr_cagr","ADR CAGR"],["alos","ALOS"]].map(([k, lbl]) => (
+                      <Slider key={k} label={lbl} value={scoreMetricW[k] ?? 1} min={0} max={10} step={0.1}
+                        onChange={v => setScoreMetricW(prev => ({ ...prev, [k]: v }))} />
+                    ))}
+                  </SliderGroup>
+
+                  {/* Directional */}
+                  <SliderGroup title="Directional Preferences" onReset={() => { setScoreLosDir(0); setScoreSupplyDir(0); }}>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", minWidth:180, maxWidth:220 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", width:"100%", marginBottom:2 }}>
+                        <span style={{ fontSize:9, color:"#64748b" }}>Short Stay</span>
+                        <span style={{ fontSize:10, color:"#94a3b8", fontWeight:600 }}>LOS Preference</span>
+                        <span style={{ fontSize:9, color:"#64748b" }}>Long Stay</span>
+                      </div>
+                      <div style={{ width:"100%", position:"relative" }}>
+                        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:1, height:"100%", background:"#334155", top:0, pointerEvents:"none" }}/>
+                        <input type="range" min={-100} max={100} step={1} value={scoreLosDir}
+                          onChange={e => setScoreLosDir(parseInt(e.target.value))}
+                          style={{ width:"100%", accentColor:"#10b981", cursor:"pointer" }}
+                        />
+                      </div>
+                      <span style={{ fontSize:10, color:"#10b981", fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
+                        {scoreLosDir > 0 ? "+" + scoreLosDir : scoreLosDir}
+                      </span>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", minWidth:180, maxWidth:220 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", width:"100%", marginBottom:2 }}>
+                        <span style={{ fontSize:9, color:"#64748b" }}>Low Supply</span>
+                        <span style={{ fontSize:10, color:"#94a3b8", fontWeight:600 }}>Supply Preference</span>
+                        <span style={{ fontSize:9, color:"#64748b" }}>High Supply</span>
+                      </div>
+                      <div style={{ width:"100%", position:"relative" }}>
+                        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:1, height:"100%", background:"#334155", top:0, pointerEvents:"none" }}/>
+                        <input type="range" min={-100} max={100} step={1} value={scoreSupplyDir}
+                          onChange={e => setScoreSupplyDir(parseInt(e.target.value))}
+                          style={{ width:"100%", accentColor:"#10b981", cursor:"pointer" }}
+                        />
+                      </div>
+                      <span style={{ fontSize:10, color:"#10b981", fontFamily:"'IBM Plex Mono',monospace", fontWeight:600 }}>
+                        {scoreSupplyDir > 0 ? "+" + scoreSupplyDir : scoreSupplyDir}
+                      </span>
+                    </div>
+                  </SliderGroup>
+                </div>
+              );
+            })()}
+
+            {/* Bar chart */}
+            {scoreRows.length > 0 && (
+              <div style={{ marginBottom:12 }}>
+                <div style={{ fontSize:10, color:"#475569", marginBottom:6, fontFamily:"'IBM Plex Mono',monospace" }}>
+                  Composite Score · {scoreRows.length} {geoLevel === "market" ? "markets" : "submarkets"} · {scoreRevType}
+                </div>
+                <ResponsiveContainer width="100%" height={Math.max(160, Math.min(320, scoreRows.length * 22 + 60))}>
+                  <BarChart data={scoreRows} layout="vertical" margin={{ top:4, right:60, bottom:4, left:160 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false}/>
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill:"#475569", fontSize:9 }} tickFormatter={v => v.toFixed(0)}/>
+                    <YAxis type="category" dataKey="label" tick={{ fill:"#94a3b8", fontSize:10 }} width={155}/>
+                    <Tooltip
+                      contentStyle={{ background:"#1e293b", border:"1px solid #334155", borderRadius:6, fontSize:11 }}
+                      formatter={(v) => [v != null ? v.toFixed(1) : "—", "Score"]}
+                      labelStyle={{ color:"#94a3b8" }}
+                    />
+                    <Bar dataKey="composite" radius={[0,3,3,0]} barSize={14}>
+                      {scoreRows.map((row, i) => (
+                        <Cell key={i} fill={i < 5 ? "#10b981" : "#3b82f6"}/>
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Score table */}
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ borderCollapse:"separate", borderSpacing:0, fontSize:11, width:"100%" }}>
+                <thead>
+                  <tr style={{ background:"#070f1e" }}>
+                    <th colSpan={geoLevel === "submarket" ? 3 : 2} style={{ background:"#070f1e", padding:"4px 0" }}/>
+                    <th colSpan={7} style={{ background:"#042818", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#10b981", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #10b98155", borderLeft:"1px solid #0d1526" }}>
+                      Blended Metrics
+                    </th>
+                    <th colSpan={8} style={{ background:"#0c1a2e", padding:"3px 8px", fontSize:9, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:1, textAlign:"center", borderTop:"2px solid #3b82f655", borderLeft:"1px solid #0d1526" }}>
+                      Normalized Scores (0–100)
+                    </th>
+                  </tr>
+                  <tr style={{ background:"#0a1628", borderBottom:"2px solid #1e293b" }}>
+                    <th style={{ padding:"6px 8px", textAlign:"center", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:36 }}>#</th>
+                    <th style={{ padding:"6px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:140 }}>{geoLevel === "submarket" ? "Submarket" : "Market"}</th>
+                    {geoLevel === "submarket" && <th style={{ padding:"6px 10px", textAlign:"left", fontSize:9, color:"#475569", fontWeight:600, whiteSpace:"nowrap", minWidth:100 }}>Market</th>}
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:75 }}>RevPAR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:75 }}>RevPAR CAGR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>Occ</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:70 }}>Occ CAGR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>ADR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:70 }}>ADR CAGR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#94a3b8", fontWeight:600, whiteSpace:"nowrap", minWidth:50 }}>ALOS</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", borderLeft:"1px solid #1a2540", minWidth:50 }}>RevPAR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:60 }}>Rev CAGR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:40 }}>Occ</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:55 }}>Occ CAGR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:40 }}>ADR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:55 }}>ADR CAGR</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#3b82f6", fontWeight:600, whiteSpace:"nowrap", minWidth:40 }}>ALOS</th>
+                    <th style={{ padding:"6px 8px", textAlign:"right", fontSize:9, color:"#10b981", fontWeight:700, whiteSpace:"nowrap", borderLeft:"2px solid #10b98155", minWidth:80 }}>Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scoreRows.length === 0 && (
+                    <tr><td colSpan={20} style={{ textAlign:"center", padding:48, color:"#334155" }}>No data for selected filters</td></tr>
+                  )}
+                  {scoreRows.map((row, i) => {
+                    const isTop5 = i < 5;
+                    const bg = isTop5 ? (i % 2 === 0 ? "#052e16" : "#073820") : (i % 2 === 0 ? "#111827" : "#0f172a");
+                    const ns = row.ns || {};
+                    const scoreVal = row.composite;
+                    const scoreBarW = scoreVal != null ? Math.max(0, Math.min(100, scoreVal)) : 0;
+                    const scoreColor = isTop5 ? "#10b981" : "#3b82f6";
+                    const fmtNorm = v => v != null ? v.toFixed(1) : "—";
+                    return (
+                      <tr key={row.geo} style={{ borderBottom:"1px solid #0d1526", background:bg }}
+                        onMouseEnter={e => e.currentTarget.style.background = isTop5 ? "#0a4a24" : "#1e293b"}
+                        onMouseLeave={e => e.currentTarget.style.background = bg}>
+                        <td style={{ padding:"5px 8px", textAlign:"center", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color: isTop5 ? "#10b981" : "#475569", fontWeight: isTop5 ? 700 : 400 }}>
+                          {row.rank}
+                        </td>
+                        <td style={{ padding:"5px 10px", color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis" }}>
+                          {row.label}
+                        </td>
+                        {geoLevel === "submarket" && (
+                          <td style={{ padding:"5px 10px", color:"#475569", fontSize:10, whiteSpace:"nowrap" }}>{row.mkt}</td>
+                        )}
+                        {/* Blended metrics */}
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#cbd5e1", borderLeft:"1px solid #0d1526" }}>{row.revpar != null ? "$"+row.revpar.toFixed(2) : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color: row.revpar_cagr != null ? (row.revpar_cagr >= 0 ? "#4ade80" : "#f87171") : "#475569" }}>{row.revpar_cagr != null ? (row.revpar_cagr >= 0 ? "+" : "") + (row.revpar_cagr * 100).toFixed(1) + "%" : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#cbd5e1" }}>{row.occ != null ? (row.occ * 100).toFixed(1)+"%" : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color: row.occ_cagr != null ? (row.occ_cagr >= 0 ? "#4ade80" : "#f87171") : "#475569" }}>{row.occ_cagr != null ? (row.occ_cagr >= 0 ? "+" : "") + (row.occ_cagr * 100).toFixed(1) + "%" : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#cbd5e1" }}>{row.adr != null ? "$"+row.adr.toFixed(2) : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color: row.adr_cagr != null ? (row.adr_cagr >= 0 ? "#4ade80" : "#f87171") : "#475569" }}>{row.adr_cagr != null ? (row.adr_cagr >= 0 ? "+" : "") + (row.adr_cagr * 100).toFixed(1) + "%" : "—"}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#94a3b8" }}>{row.alos != null ? row.alos.toFixed(2) : "—"}</td>
+                        {/* Normalized scores */}
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b", borderLeft:"1px solid #0d1526" }}>{fmtNorm(ns.revpar)}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.revpar_cagr)}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.occ)}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.occ_cagr)}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.adr)}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{fmtNorm(ns.adr_cagr)}</td>
+                        <td style={{ padding:"5px 8px", textAlign:"right", fontFamily:"'IBM Plex Mono',monospace", fontSize:10, color:"#64748b" }}>{row.alosAdj != null ? row.alosAdj.toFixed(1) : "—"}</td>
+                        {/* Composite score */}
+                        <td style={{ padding:"5px 8px", borderLeft:`2px solid ${scoreColor}55`, minWidth:80 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            <div style={{ flex:1, height:10, background:"#1e293b", borderRadius:3, overflow:"hidden", minWidth:40 }}>
+                              <div style={{ height:"100%", width: scoreBarW + "%", background: scoreColor, borderRadius:3, transition:"width 0.2s" }}/>
+                            </div>
+                            <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:11, fontWeight:700, color: scoreColor, minWidth:32, textAlign:"right" }}>
+                              {scoreVal != null ? scoreVal.toFixed(1) : "—"}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
