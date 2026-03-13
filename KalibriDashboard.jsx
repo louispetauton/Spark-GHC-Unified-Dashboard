@@ -1678,7 +1678,7 @@ export default function KalibriDashboard() {
                   <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
                 )}
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-                <XAxis dataKey="period" tick={{ fill:"#475569", fontSize:9 }} angle={-45} textAnchor="end" height={55}
+                <XAxis dataKey="period" tick={{ fill:"#94a3b8", fontSize:10 }} angle={-45} textAnchor="end" height={55}
                   ticks={trendData.chartData?.filter(d => [1,4,7,10].includes(parseInt(d.period.split("-")[1]))).map(d => d.period)}/>
                 <YAxis
                   tick={{ fill:"#475569", fontSize:10 }}
