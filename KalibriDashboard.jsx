@@ -2470,6 +2470,11 @@ export default function KalibriDashboard() {
             {/* Scrollable section */}
             <div style={{ display:"flex", gap:10, padding:"6px 16px", alignItems:"flex-start", overflowX:"auto", flexWrap:"nowrap", flex:1, minWidth:0 }}>
 
+              {/* Supply disclaimer */}
+              <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontSize:10, color:"#64748b", fontStyle:"italic" }}>Supply pins limited to Kalibri participation list</span>
+              </div>
+
               {/* View + Ext Stay */}
               <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
                 <label style={label9}>View</label>
