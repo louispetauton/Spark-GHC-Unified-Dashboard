@@ -605,6 +605,7 @@ export default function KalibriDashboard() {
   const [selectedGeos, setSelectedGeos] = useState([]);   // [] = all; market names or "Market::Sub" keys
   const [period1,      setPeriod1]      = useState("");
   const [showForecast, setShowForecast] = useState(false);
+  const [showMarkers,  setShowMarkers]  = useState(true);
   const [timeWindow,   setTimeWindow]   = useState("mo");
 
   // tabs
@@ -1600,6 +1601,13 @@ export default function KalibriDashboard() {
                 </div>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={label9}>Events</label>
+                <div style={{ display:"flex", gap:2 }}>
+                  <Btn active={showMarkers}  onClick={() => setShowMarkers(true)}  color="#818cf8">Show</Btn>
+                  <Btn active={!showMarkers} onClick={() => setShowMarkers(false)}>Hide</Btn>
+                </div>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={label9}>From</label>
                 <select value={trendStart} onChange={e => { setTrendStart(e.target.value); setTrendGeoSel(null); }} style={{ ...sel, minWidth:120 }}>
                   <option value="">All time</option>
@@ -1672,7 +1680,7 @@ export default function KalibriDashboard() {
             </div>
 
             <ResponsiveContainer width="100%" height={600}>
-              <LineChart data={trendData.chartData} margin={{ top:10, right:30, bottom:80, left:20 }}>
+              <LineChart data={trendData.chartData} margin={{ top:30, right:30, bottom:80, left:20 }}>
                 {showForecast && forecastStartLabel && (
                   <ReferenceArea x1={forecastStartLabel} fill="#f59e0b" fillOpacity={0.04}/>
                 )}
@@ -1689,8 +1697,16 @@ export default function KalibriDashboard() {
                   <ReferenceLine x={forecastStartLabel} stroke="#f59e0b" strokeDasharray="6 3" strokeWidth={1.5}
                     label={{ value:"Forecast →", fill:"#f59e0b", fontSize:9, position:"top" }}/>
                 )}
-                <ReferenceLine x="Jan - 2020" stroke="#ef444466" strokeDasharray="4 4"
-                  label={{ value:"COVID", fill:"#ef4444", fontSize:9, position:"top" }}/>
+                {showMarkers && [
+                  { x:"Mar - 2020", label:"COVID-19",           color:"#ef4444" },
+                  { x:"Jun - 2021", label:"Hotels Reopen",      color:"#22c55e" },
+                  { x:"Mar - 2022", label:"Fed Rate Hikes",     color:"#f59e0b" },
+                  { x:"Jul - 2022", label:"Revenge Travel Peak",color:"#a78bfa" },
+                  { x:"Jan - 2023", label:"Record ADR",         color:"#38bdf8" },
+                ].map(ev => (
+                  <ReferenceLine key={ev.x} x={ev.x} stroke={ev.color+"99"} strokeDasharray="4 4" strokeWidth={1.5}
+                    label={{ value:ev.label, fill:ev.color, fontSize:9, position:"insideTopRight" }}/>
+                ))}
                 {trendData.series.map((s, i) => (
                   <Line key={s} type="monotone" dataKey={s} stroke={COLORS[i % COLORS.length]}
                     strokeWidth={2} dot={false} connectNulls activeDot={{ r:4 }}
