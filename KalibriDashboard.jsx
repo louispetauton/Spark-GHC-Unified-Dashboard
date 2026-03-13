@@ -642,6 +642,7 @@ export default function KalibriDashboard() {
 
   // supply tab
   const [supplyData,          setSupplyData]          = useState([]);
+  const [costarLookup,        setCostarLookup]        = useState({});
   const [expandedGeo,         setExpandedGeo]         = useState(null);
   const [expandedTier,        setExpandedTier]        = useState("All Tier");
   const [extStayOnly,         setExtStayOnly]         = useState(false);
@@ -719,6 +720,38 @@ export default function KalibriDashboard() {
         setSupplyData(rows);
       })
       .catch(() => {}); // non-fatal
+
+    fetch("/costar_properties.csv")
+      .then(r => r.text())
+      .then(text => {
+        const lines = text.trim().split(/\r?\n/);
+        const parseRow = line => {
+          const vals = []; let inQ = false, cur = "";
+          for (let c = 0; c < line.length; c++) {
+            const ch = line[c];
+            if (ch === '"') { inQ = !inQ; }
+            else if (ch === "," && !inQ) { vals.push(cur); cur = ""; }
+            else { cur += ch; }
+          }
+          vals.push(cur);
+          return vals;
+        };
+        const headers = parseRow(lines[0]).map(h => h.trim());
+        const lookup = {};
+        lines.slice(1).forEach(line => {
+          const vals = parseRow(line);
+          const row = {};
+          headers.forEach((h, i) => row[h] = (vals[i] || "").trim());
+          const lat = parseFloat(row.Lat);
+          const lng = parseFloat(row.Long);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+            lookup[key] = row;
+          }
+        });
+        setCostarLookup(lookup);
+      })
+      .catch(() => {});
 
     fetch("/construct_connect.csv")
       .then(r => r.text())
@@ -805,19 +838,24 @@ export default function KalibriDashboard() {
           const marker = L.circleMarker([parseFloat(r.Lat), parseFloat(r.Lng)], {
             radius: 5, fillColor: color, color: "#000", weight: 0.5, opacity: 0.9, fillOpacity: 0.85,
           }).addTo(map);
+          const csKey = `${parseFloat(r.Lat).toFixed(3)},${parseFloat(r.Lng).toFixed(3)}`;
+          const cs = costarLookup[csKey] || {};
           marker.bindPopup(`
-            <div style="font-family:sans-serif;min-width:200px;padding:4px">
+            <div style="font-family:sans-serif;min-width:220px;padding:4px">
               <div style="font-size:13px;font-weight:700;margin-bottom:4px">${r.Property}</div>
-              <div style="font-size:11px;color:#64748b;margin-bottom:6px">${r.Submarket || r.Market}</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
                 <span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:${color}22;color:${color}">${r.Tier.replace(" Tier","")}</span>
                 ${EXTENDED_STAY_BRANDS.has(r.Brand) ? '<span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:#8b5cf622;color:#8b5cf6">Extended Stay</span>' : ""}
               </div>
               <table style="font-size:11px;width:100%;border-collapse:collapse">
+                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Market</td><td>${r.Market}</td></tr>
+                ${r.Submarket ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Submarket</td><td>${r.Submarket}</td></tr>` : ""}
                 <tr><td style="color:#64748b;padding:2px 8px 2px 0">Brand</td><td style="font-weight:500">${r.Brand}</td></tr>
                 <tr><td style="color:#64748b;padding:2px 8px 2px 0">Company</td><td>${r.Company}</td></tr>
-                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Class</td><td>${r["Chain Class"] || "—"}</td></tr>
+                <tr><td style="color:#64748b;padding:2px 8px 2px 0">Scale</td><td>${r["Chain Scale"] || r["Chain Class"] || "—"}</td></tr>
                 <tr><td style="color:#64748b;padding:2px 8px 2px 0">Rooms</td><td><b>${r.Rooms}</b></td></tr>
+                ${cs["Hotel Open Date"] ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Open Date</td><td>${cs["Hotel Open Date"]}</td></tr>` : ""}
+                ${cs["Property Address"] ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Address</td><td>${cs["Property Address"]}, ${cs["City"]} ${cs["Zip"]}</td></tr>` : ""}
               </table>
             </div>`);
         });
@@ -981,7 +1019,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
+  }, [tab, mapReady, supplyData, costarLookup, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || LAST_ACTUAL_OVERRIDE || "2026-01", [db]);
