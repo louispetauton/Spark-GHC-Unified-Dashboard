@@ -642,7 +642,7 @@ export default function KalibriDashboard() {
 
   // supply tab
   const [supplyData,          setSupplyData]          = useState([]);
-  const [costarLookup,        setCostarLookup]        = useState({});
+  const [participationLookup, setParticipationLookup] = useState({});
   const [expandedGeo,         setExpandedGeo]         = useState(null);
   const [expandedTier,        setExpandedTier]        = useState("All Tier");
   const [extStayOnly,         setExtStayOnly]         = useState(false);
@@ -721,7 +721,7 @@ export default function KalibriDashboard() {
       })
       .catch(() => {}); // non-fatal
 
-    fetch("/costar_properties.csv")
+    fetch("/kalibri_participation.csv")
       .then(r => r.text())
       .then(text => {
         const lines = text.trim().split(/\r?\n/);
@@ -742,14 +742,14 @@ export default function KalibriDashboard() {
           const vals = parseRow(line);
           const row = {};
           headers.forEach((h, i) => row[h] = (vals[i] || "").trim());
-          const lat = parseFloat(row.Lat);
-          const lng = parseFloat(row.Long);
+          const lat = parseFloat(row.Latitude);
+          const lng = parseFloat(row.Longitude);
           if (!isNaN(lat) && !isNaN(lng)) {
             const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
             lookup[key] = row;
           }
         });
-        setCostarLookup(lookup);
+        setParticipationLookup(lookup);
       })
       .catch(() => {});
 
@@ -838,8 +838,8 @@ export default function KalibriDashboard() {
           const marker = L.circleMarker([parseFloat(r.Lat), parseFloat(r.Lng)], {
             radius: 5, fillColor: color, color: "#000", weight: 0.5, opacity: 0.9, fillOpacity: 0.85,
           }).addTo(map);
-          const csKey = `${parseFloat(r.Lat).toFixed(3)},${parseFloat(r.Lng).toFixed(3)}`;
-          const cs = costarLookup[csKey] || {};
+          const pKey = `${parseFloat(r.Lat).toFixed(3)},${parseFloat(r.Lng).toFixed(3)}`;
+          const p = participationLookup[pKey] || {};
           marker.bindPopup(`
             <div style="font-family:sans-serif;min-width:220px;padding:4px">
               <div style="font-size:13px;font-weight:700;margin-bottom:4px">${r.Property}</div>
@@ -854,8 +854,9 @@ export default function KalibriDashboard() {
                 <tr><td style="color:#64748b;padding:2px 8px 2px 0">Company</td><td>${r.Company}</td></tr>
                 <tr><td style="color:#64748b;padding:2px 8px 2px 0">Scale</td><td>${r["Chain Scale"] || r["Chain Class"] || "—"}</td></tr>
                 <tr><td style="color:#64748b;padding:2px 8px 2px 0">Rooms</td><td><b>${r.Rooms}</b></td></tr>
-                ${cs["Hotel Open Date"] ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Open Date</td><td>${cs["Hotel Open Date"]}</td></tr>` : ""}
-                ${cs["Property Address"] ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Address</td><td>${cs["Property Address"]}, ${cs["City"]} ${cs["Zip"]}</td></tr>` : ""}
+                ${p["Open Date"] ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Open Date</td><td>${p["Open Date"]}</td></tr>` : ""}
+                ${p["Address"] ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Address</td><td>${p["Address"]}, ${p["City"]} ${p["Postal Code"]}</td></tr>` : ""}
+                ${p["Census Property ID"] ? `<tr><td style="color:#64748b;padding:2px 8px 2px 0">Census ID</td><td style="color:#94a3b8">${p["Census Property ID"]}</td></tr>` : ""}
               </table>
             </div>`);
         });
@@ -1019,7 +1020,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, costarLookup, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
+  }, [tab, mapReady, supplyData, participationLookup, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || LAST_ACTUAL_OVERRIDE || "2026-01", [db]);
