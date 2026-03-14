@@ -939,60 +939,58 @@ export default function UnifiedDashboard() {
         "Award":"#10b981","Post-Bid":"#10b981","Bid Results":"#10b981","Under Construction":"#22c55e",
       };
 
-      if (dataSource === "kalibri") {
-        const TIER_PIN_COLOR = { "Lower Tier":"#ef4444","Mid Tier":"#f59e0b","Upper Tier":"#10b981" };
-
-        if (mapMode === "pins") {
-          const CLASS_COLOR = {
-            "Economy":"#ef4444","Midscale":"#f97316","Upper Midscale":"#f59e0b",
-            "Upscale":"#3b82f6","Upper Upscale":"#8b5cf6","Luxury":"#f0abfc","Independent":"#64748b"
-          };
-          let filtered = costarProps.filter(r => r.Lat && r.Lng);
-          // Geo filter
-          if (selectedGeos.length > 0) {
-            if (geoLevel === "market") {
-              filtered = filtered.filter(r => selectedGeos.some(g => r.marketName.includes(g.replace(", OH","")) || g.includes(r.marketName)));
-            } else {
-              filtered = filtered.filter(r => selectedGeos.some(g => {
-                const [mkt] = g.split("::");
-                return r.marketName.includes(mkt.replace(", OH","")) || mkt.includes(r.marketName);
-              }));
-            }
+      if (mapMode === "pins") {
+        // ── Property pins (CoStar data, works for both sources) ──
+        const CLASS_COLOR = {
+          "Economy":"#ef4444","Midscale":"#f97316","Upper Midscale":"#f59e0b",
+          "Upscale":"#3b82f6","Upper Upscale":"#8b5cf6","Luxury":"#f0abfc","Independent":"#64748b"
+        };
+        let filtered = costarProps.filter(r => r.Lat && r.Lng);
+        if (selectedGeos.length > 0) {
+          if (geoLevel === "market") {
+            filtered = filtered.filter(r => selectedGeos.some(g => r.marketName.includes(g.replace(", OH","")) || g.includes(r.marketName)));
+          } else {
+            filtered = filtered.filter(r => selectedGeos.some(g => {
+              const [mkt] = g.split("::");
+              return r.marketName.includes(mkt.replace(", OH","")) || mkt.includes(r.marketName);
+            }));
           }
-          if (mapExtStay)              filtered = filtered.filter(r => r.isExtStay);
-          if (mapCompanies.length > 0) filtered = filtered.filter(r => mapCompanies.includes(r.parentCompany));
-          if (mapBrands.length > 0)    filtered = filtered.filter(r => mapBrands.includes(r.Brand));
-          filtered.forEach(r => {
-            const color = CLASS_COLOR[r.hotelClass] || "#64748b";
-            const marker = L.circleMarker([r.Lat, r.Lng], {
-              radius:5, fillColor:color, color:"#000", weight:0.5, opacity:0.9, fillOpacity:0.85,
-            }).addTo(map);
-            marker.bindPopup(`<div style="font-family:sans-serif;min-width:200px;padding:4px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:4px">${r["Property Name"]}</div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:6px">${r.submarket||r.marketName}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:${color}22;color:${color}">${r.hotelClass}</span>
-        ${r.isExtStay?'<span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:#8b5cf622;color:#8b5cf6">Extended Stay</span>':""}
-      </div>
-      <table style="font-size:11px;width:100%;border-collapse:collapse">
-        <tr><td style="color:#64748b;padding:2px 8px 2px 0">Brand</td><td style="font-weight:500">${r.Brand||"Independent"}</td></tr>
-        <tr><td style="color:#64748b;padding:2px 8px 2px 0">Parent Company</td><td>${r.parentCompany||"—"}</td></tr>
-        <tr><td style="color:#64748b;padding:2px 8px 2px 0">Rooms</td><td><b>${r.Rooms}</b></td></tr>
-        <tr><td style="color:#64748b;padding:2px 8px 2px 0">Operation</td><td>${r["Operation Type"]||"—"}</td></tr>
-      </table></div>`);
-          });
-          const legend = L.control({ position:"bottomright" });
-          legend.onAdd = () => {
-            const div = L.DomUtil.create("div");
-            const shown = mapBrands.length > 0 ? mapBrands.length + " brand(s)" : mapExtStay ? "Extended Stay" : "All brands";
-            div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8">
-      <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">${filtered.length} properties · ${shown}</div>
-      ${Object.entries(CLASS_COLOR).map(([cl,c])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="${c}" fill-opacity="0.85" stroke="#000" stroke-width="0.5"/></svg><span style="color:${c}">${cl}</span></div>`).join("")}
-    </div>`;
-            return div;
-          };
-          legend.addTo(map);
-        } else {
+        }
+        if (mapExtStay)              filtered = filtered.filter(r => r.isExtStay);
+        if (mapCompanies.length > 0) filtered = filtered.filter(r => mapCompanies.includes(r.parentCompany));
+        if (mapBrands.length > 0)    filtered = filtered.filter(r => mapBrands.includes(r.Brand));
+        filtered.forEach(r => {
+          const color = CLASS_COLOR[r.hotelClass] || "#64748b";
+          const marker = L.circleMarker([r.Lat, r.Lng], {
+            radius:5, fillColor:color, color:"#000", weight:0.5, opacity:0.9, fillOpacity:0.85,
+          }).addTo(map);
+          marker.bindPopup(`<div style="font-family:sans-serif;min-width:200px;padding:4px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">${r["Property Name"]}</div>
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px">${r.submarket||r.marketName}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+              <span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:${color}22;color:${color}">${r.hotelClass}</span>
+              ${r.isExtStay?'<span style="font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;background:#8b5cf622;color:#8b5cf6">Extended Stay</span>':""}
+            </div>
+            <table style="font-size:11px;width:100%;border-collapse:collapse">
+              <tr><td style="color:#64748b;padding:2px 8px 2px 0">Brand</td><td style="font-weight:500">${r.Brand||"Independent"}</td></tr>
+              <tr><td style="color:#64748b;padding:2px 8px 2px 0">Parent Company</td><td>${r.parentCompany||"—"}</td></tr>
+              <tr><td style="color:#64748b;padding:2px 8px 2px 0">Rooms</td><td><b>${r.Rooms}</b></td></tr>
+              <tr><td style="color:#64748b;padding:2px 8px 2px 0">Operation</td><td>${r["Operation Type"]||"—"}</td></tr>
+            </table></div>`);
+        });
+        const legend = L.control({ position:"bottomright" });
+        legend.onAdd = () => {
+          const div = L.DomUtil.create("div");
+          const shown = mapBrands.length > 0 ? mapBrands.length + " brand(s)" : mapExtStay ? "Extended Stay" : "All brands";
+          div.innerHTML = `<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:sans-serif;font-size:11px;color:#94a3b8">
+            <div style="font-weight:700;color:#e2e8f0;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px">${filtered.length} properties · ${shown}</div>
+            ${Object.entries(CLASS_COLOR).map(([cl,c])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="${c}" fill-opacity="0.85" stroke="#000" stroke-width="0.5"/></svg><span style="color:${c}">${cl}</span></div>`).join("")}
+          </div>`;
+          return div;
+        };
+        legend.addTo(map);
+      } else if (dataSource === "kalibri") {
+        const TIER_PIN_COLOR = { "Lower Tier":"#ef4444","Mid Tier":"#f59e0b","Upper Tier":"#10b981" };
           // Kalibri bubbles
           const geoMap = {};
           for (const r of supplyData) {
