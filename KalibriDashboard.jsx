@@ -659,6 +659,8 @@ export default function KalibriDashboard() {
   // map tab
   const [mapReady,      setMapReady]     = useState(false);
   const [mapMode,       setMapMode]      = useState("bubbles");   // "bubbles" | "pins"
+  const [mapScales,     setMapScales]    = useState([]);
+  const [mapClasses,    setMapClasses]   = useState([]);
   const [ccStatusOpen,  setCcStatusOpen] = useState(false);
   const [mapCompanies,  setMapCompanies] = useState([]);
   const [mapBrands,     setMapBrands]    = useState([]);
@@ -822,6 +824,8 @@ export default function KalibriDashboard() {
         if (mapExtStay)               filtered = filtered.filter(r => EXTENDED_STAY_BRANDS.has(r.Brand));
         if (mapCompanies.length > 0)  filtered = filtered.filter(r => mapCompanies.includes(r.Company));
         if (mapBrands.length > 0)     filtered = filtered.filter(r => mapBrands.includes(r.Brand));
+        if (mapScales.length > 0)     filtered = filtered.filter(r => mapScales.includes(r["Chain Scale"]));
+        if (mapClasses.length > 0)    filtered = filtered.filter(r => mapClasses.includes(r["Chain Class"]));
         if (selectedGeos.length > 0) {
           if (geoLevel === "market") {
             filtered = filtered.filter(r => selectedGeos.includes(r.Market));
@@ -892,13 +896,15 @@ export default function KalibriDashboard() {
             name: geoLevel === "market" ? r.Market.replace(", OH","") : (r.Submarket || r.Market.replace(", OH","")),
             market: r.Market, totalRooms: 0, totalProps: 0, filteredRooms: 0, filteredProps: 0, tiers: {},
           };
-          const tierMatch = tiers[0] === "All Tier" || tiers.includes(r.Tier);
+          const tierMatch  = tiers[0] === "All Tier" || tiers.includes(r.Tier);
+          const scaleMatch = mapScales.length === 0  || mapScales.includes(r["Chain Scale"]);
+          const classMatch = mapClasses.length === 0 || mapClasses.includes(r["Chain Class"]);
           geoMap[key].totalRooms += r.Rooms;
           geoMap[key].totalProps += 1;
           if (!geoMap[key].tiers[r.Tier]) geoMap[key].tiers[r.Tier] = { rooms: 0, props: 0 };
           geoMap[key].tiers[r.Tier].rooms += r.Rooms;
           geoMap[key].tiers[r.Tier].props += 1;
-          if (tierMatch) { geoMap[key].filteredRooms += r.Rooms; geoMap[key].filteredProps += 1; }
+          if (tierMatch && scaleMatch && classMatch) { geoMap[key].filteredRooms += r.Rooms; geoMap[key].filteredProps += 1; }
         }
         const geos = Object.entries(geoMap).filter(([k]) => GEO_COORDS[k] && geoMap[k].filteredRooms > 0);
         const maxRooms = Math.max(...geos.map(([, g]) => g.filteredRooms), 1);
@@ -1020,7 +1026,7 @@ export default function KalibriDashboard() {
       if (map) { map.remove(); map = null; }
       mapInstanceRef.current = null;
     };
-  }, [tab, mapReady, supplyData, participationLookup, geoLevel, selectedGeos, tiers, mapMode, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
+  }, [tab, mapReady, supplyData, participationLookup, geoLevel, selectedGeos, tiers, mapMode, mapScales, mapClasses, mapCompanies, mapBrands, mapExtStay, ccData, showCC, ccTypeFilter, ccStatuses]);
 
   const periods         = useMemo(() => db ? Object.keys(db.lookup).sort() : [], [db]);
   const lastActual      = useMemo(() => db?.lastActual || LAST_ACTUAL_OVERRIDE || "2026-01", [db]);
@@ -2626,6 +2632,38 @@ export default function KalibriDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* Chain Scale pills */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
+                <label style={label9}>
+                  Chain Scale
+                  {" "}<span style={{ color:"#475569" }}>· {mapScales.length > 0 ? `${mapScales.length} selected` : "all"}</span>
+                  {mapScales.length > 0 && <span onClick={() => setMapScales([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
+                </label>
+                <div style={PILL_ROW}>
+                  {["Economy","Midscale","Upper Midscale","Upscale","Upper Upscale","Luxury","Independent"].map(s => (
+                    <Btn key={s} active={mapScales.includes(s)}
+                      onClick={() => setMapScales(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                      color="#0ea5e9" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{s}</Btn>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chain Class pills */}
+              <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
+                <label style={label9}>
+                  Chain Class
+                  {" "}<span style={{ color:"#475569" }}>· {mapClasses.length > 0 ? `${mapClasses.length} selected` : "all"}</span>
+                  {mapClasses.length > 0 && <span onClick={() => setMapClasses([])} style={{ color:"#3b82f6", cursor:"pointer", marginLeft:4 }}>clear</span>}
+                </label>
+                <div style={PILL_ROW}>
+                  {["Economy","Midscale","Upper Midscale","Upscale","Upper Upscale","Luxury"].map(c => (
+                    <Btn key={c} active={mapClasses.includes(c)}
+                      onClick={() => setMapClasses(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])}
+                      color="#14b8a6" style={{ fontSize:10, padding:"0 7px", height:22, flexShrink:0 }}>{c}</Btn>
+                  ))}
+                </div>
+              </div>
 
               {!mapReady && <span style={{ color:"#f59e0b", fontSize:11, alignSelf:"center", flexShrink:0 }}>Loading map…</span>}
             </div>{/* end scrollable section */}
