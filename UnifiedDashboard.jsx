@@ -3205,7 +3205,6 @@ export default function UnifiedDashboard() {
             </div>
           );
         })()}
-      </div>
     </div>
   );
 }
